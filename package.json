@@ -1,0 +1,26 @@
+{
+  "name": "cursorq",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cursor subscription usage capsule — daily budget, blue surplus, dev jokes",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @cursorq/core && npm run build -w @cursorq/desktop",
+    "build:core": "npm run build -w @cursorq/core",
+    "dev": "node scripts/tauri-dev-launcher.mjs",
+    "dev:bash": "bash scripts/dev-tauri.sh",
+    "setup:path": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/add-cargo-to-path.ps1",
+    "dev:electron": "npm run dev -w @cursorq/desktop",
+    "start": "npm run start -w @cursorq/desktop",
+    "tauri": "node scripts/tauri-dev-launcher.mjs",
+    "typecheck": "npm run typecheck -w @cursorq/core && npm run typecheck -w @cursorq/desktop",
+    "validate:copy": "node scripts/validate-copy.mjs",
+    "package:win": "node scripts/package-release.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

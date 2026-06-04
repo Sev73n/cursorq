@@ -1,0 +1,227 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --w: 200px;
+  --pill-h: 40px;
+  --panel-h: 220px;
+  --radius: 20px;
+  --bg: #0f172a;
+}
+
+html {
+  width: var(--w);
+  height: var(--pill-h);
+  overflow: hidden;
+  background: var(--bg);
+  border-radius: var(--radius);
+}
+
+body {
+  width: var(--w);
+  height: var(--pill-h);
+  overflow: hidden;
+  background: var(--bg);
+  border-radius: var(--radius);
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  user-select: none;
+}
+
+body.expanded {
+  height: calc(var(--pill-h) + var(--panel-h));
+}
+
+.shell {
+  width: var(--w);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* 药丸：高度锁死，绝不随窗口拉高而拉伸 */
+.pill {
+  position: relative;
+  width: var(--w);
+  height: var(--pill-h);
+  min-height: var(--pill-h);
+  max-height: var(--pill-h);
+  flex: 0 0 var(--pill-h);
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.pill-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--w);
+  height: var(--pill-h);
+  background: linear-gradient(90deg, #16a34a 0%, #4ade80 100%);
+  pointer-events: none;
+}
+
+.pill-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: var(--pill-h);
+  width: 100%;
+}
+
+.drag-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 150px;
+  height: var(--pill-h);
+  -webkit-app-region: drag;
+  cursor: move;
+}
+
+.mascot-wrap {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin-left: 4px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.55);
+  pointer-events: none;
+}
+
+.mascot-wrap img {
+  display: block;
+  width: 36px;
+  height: 36px;
+}
+
+.copy {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+
+.line {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 8em;
+}
+
+.btn-toggle {
+  flex: 0 0 32px;
+  height: 28px;
+  margin-right: 4px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+  color: #e2e8f0;
+  font-size: 11px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.btn-toggle:hover {
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.shell.expanded .btn-toggle {
+  transform: rotate(180deg);
+}
+
+.panel {
+  flex: 0 0 auto;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    height 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+  -webkit-app-region: no-drag;
+}
+
+.shell.expanded .panel {
+  height: var(--panel-h);
+  opacity: 1;
+}
+
+.panel-inner {
+  height: var(--panel-h);
+  padding: 8px 10px 10px;
+  color: #e2e8f0;
+  font-size: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  overflow-y: auto;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 4px;
+}
+
+.cycle {
+  color: #94a3b8;
+  margin-bottom: 6px;
+  font-size: 9px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 6px;
+  margin-bottom: 6px;
+  font-size: 9px;
+}
+
+.stats span {
+  color: #94a3b8;
+}
+
+.stats strong {
+  color: #f1f5f9;
+}
+
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+}
+
+.usage-table th {
+  text-align: left;
+  color: #94a3b8;
+  padding: 3px 2px 3px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.usage-table td {
+  padding: 4px 2px 4px 0;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.6);
+}
+
+.usage-table td:last-child {
+  text-align: right;
+  color: #7dd3fc;
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 8px;
+  color: #64748b;
+}

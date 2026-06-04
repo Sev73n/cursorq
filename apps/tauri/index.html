@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CursorQ</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body oncontextmenu="return false">
+    <div class="shell" id="shell">
+      <div class="pill" id="pill">
+        <div class="pill-bar" id="bar" aria-hidden="true"></div>
+        <div class="pill-row">
+          <div class="mascot-wrap" id="mascotWrap" title="单击展开 · 双击换动图 · 1分钟后自动轮播">
+            <img
+              id="mascotGif"
+              class="mascot-gif"
+              src=""
+              width="30"
+              height="30"
+              alt=""
+              draggable="false"
+            />
+          </div>
+          <p class="joke-line" id="jokeLine">连接中</p>
+        </div>
+      </div>
+      <div class="panel-reel" id="panelReel">
+        <div class="panel" id="panel">
+          <div class="panel-inner" id="panelInner">
+          <header class="panel-head">
+            <h3 class="panel-tier tier-default" id="panelTier">—</h3>
+            <p class="cycle" id="cycleRange">—</p>
+          </header>
+          <section class="metrics" id="metrics"></section>
+          <div class="debug-toolbar" id="debugToolbar" hidden></div>
+          <section class="usage-list" id="usageList"></section>
+          <p class="hint" id="hint"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+[
+  { "line1": "余量充足", "line2": "去vibe!", "state": "surplus_vibe" },
+  { "line1": "蓝条满满", "line2": "放心写", "state": "surplus_vibe" },
+  { "line1": "周期余量大", "line2": "从右啃蓝", "state": "surplus_vibe" },
+  { "line1": "周末攒了", "line2": "今日浪", "state": "surplus_vibe" },
+  { "line1": "用量八成", "line2": "喝口水", "state": "warn80" },
+  { "line1": "快见底", "line2": "慢点敲", "state": "warn80" },
+  { "line1": "今日够了", "line2": "该下班", "state": "done_today" },
+  { "line1": "日额度完", "line2": "摸鱼吧", "state": "done_today" },
+  { "line1": "KPI达成", "line2": "Cursor劝休", "state": "done_today" },
+  { "line1": "本月超车", "line2": "后面会抠", "state": "over_cycle" },
+  { "line1": "周期偏紧", "line2": "省着点", "state": "over_cycle" }
+]

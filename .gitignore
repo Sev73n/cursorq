@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build / compile
+dist/
+out/
+**/target/
+packages/core/dist/
+*.tsbuildinfo
+
+# Logs & local runtime data（含用量快照、笑话索引 — 隐私）
+*.log
+**/.data/
+**/logs/
+data/app-state.json
+data/content-sync.json
+**/app-state.json
+
+# Secrets & env
+.env
+.env.*
+!.env.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Release artifacts（本地打包产物，不进仓库）
+release/*.zip
+release/**/*.exe
+release/cursorq/node_modules/
+release/cursorq/data/app-state.json
+release/cursorq/data/content-sync.json
+release/cursorq/logs/*.log
+
+# Tauri / Vite cache
+apps/tauri/src-tauri/gen/schemas/
+.turbo/
+
+# Optional: 吉祥物拆图工作区（体积大，发布用 gifs/ 与 default.png 即可）
+# apps/tauri/public/mascot/sheet-source.png
+# apps/tauri/public/mascot/action*
+# apps/tauri/public/mascot/walk*

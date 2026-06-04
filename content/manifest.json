@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "files": [
+    "copy/jokes.json",
+    "copy/states.json",
+    "mascot/default.png",
+    "mascot/gifs/01-mascot.gif"
+  ]
+}

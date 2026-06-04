@@ -1,10 +1,11 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 
-const BUNDLED_PLACEHOLDER = "/mascot/default.png";
+const DEV_PLACEHOLDER_STATIC = "/mascot/default.png";
+/** 启动后先显示 default.png，满 1 分钟再开始轮播 */
 const CAROUSEL_START_MS = 60_000;
-const CAROUSEL_INTERVAL_MS = 5_000;
+/** 轮播中每张动图停留 20 分钟 */
+const CAROUSEL_INTERVAL_MS = 20 * 60_000;
 
-let fileUrls: string[] = [];
 let fileNames: string[] = [];
 let index = 0;
 let carouselStarted = false;
@@ -15,49 +16,78 @@ function mascotImg(): HTMLImageElement | null {
   return document.getElementById("mascotGif") as HTMLImageElement | null;
 }
 
-async function placeholderSrc(): Promise<string> {
+function isViteDev(): boolean {
+  return (
+    location.hostname === "localhost" &&
+    (location.port === "1420" || location.port === "5173")
+  );
+}
+
+function loadImage(src: string): Promise<boolean> {
+  const img = mascotImg();
+  if (!img) return Promise.resolve(false);
+  if (img.src === src || img.currentSrc === src) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const done = (ok: boolean) => {
+      img.onload = null;
+      img.onerror = null;
+      resolve(ok);
+    };
+    img.onload = () => done(true);
+    img.onerror = () => done(false);
+    img.src = src;
+  });
+}
+
+async function dataUrl(asset: string, devFallback: string): Promise<string> {
   try {
-    const p = await invoke<string | null>("mascot_placeholder_path");
-    if (p) return convertFileSrc(p);
+    return await invoke<string>("mascot_asset_data_url", { asset });
   } catch {
-    /* dev fallback */
+    if (isViteDev()) return devFallback;
+    throw new Error(`mascot asset failed: ${asset}`);
   }
-  return BUNDLED_PLACEHOLDER;
 }
 
 async function showPlaceholder(): Promise<void> {
-  const img = mascotImg();
-  if (!img) return;
-  img.src = await placeholderSrc();
+  try {
+    const src = await dataUrl("placeholder", DEV_PLACEHOLDER_STATIC);
+    const ok = await loadImage(src);
+    if (!ok && isViteDev()) await loadImage(DEV_PLACEHOLDER_STATIC);
+  } catch {
+    if (isViteDev()) await loadImage(DEV_PLACEHOLDER_STATIC);
+  }
 }
 
 async function gifSrcAt(i: number): Promise<string | null> {
   const name = fileNames[i];
   if (!name) return null;
   try {
-    const p = await invoke<string>("mascot_gif_path", { name });
-    return convertFileSrc(p);
+    return await dataUrl(`gif:${name}`, `/mascot/gifs/${encodeURIComponent(name)}`);
   } catch {
-    return null;
+    return isViteDev() ? `/mascot/gifs/${encodeURIComponent(name)}` : null;
   }
 }
 
 async function showAt(i: number): Promise<void> {
-  const img = mascotImg();
-  if (!img || !fileNames.length) return;
+  if (!fileNames.length) {
+    await showPlaceholder();
+    return;
+  }
   index = ((i % fileNames.length) + fileNames.length) % fileNames.length;
   const src = await gifSrcAt(index);
-  if (src) img.src = src;
+  if (!src) {
+    await showPlaceholder();
+    return;
+  }
+  const ok = await loadImage(src);
+  if (!ok) await showPlaceholder();
 }
 
 async function reloadGifList(): Promise<void> {
   try {
-    const files = await invoke<string[]>("list_mascot_gifs");
-    fileNames = files;
-    fileUrls = files;
+    fileNames = await invoke<string[]>("list_mascot_gifs");
   } catch {
     fileNames = [];
-    fileUrls = [];
   }
 }
 
@@ -71,10 +101,7 @@ function stopCarouselInterval(): void {
 async function startAutoCarousel(): Promise<void> {
   if (carouselStarted) return;
   carouselStarted = true;
-  if (!fileNames.length) {
-    await showPlaceholder();
-    return;
-  }
+  if (!fileNames.length) return;
   await showAt(index);
   if (fileNames.length < 2) return;
   stopCarouselInterval();
@@ -92,24 +119,26 @@ function scheduleAutoCarousel(): void {
 }
 
 export async function initMascotGifs(): Promise<void> {
-  await showPlaceholder();
   await reloadGifList();
+  await showPlaceholder();
   scheduleAutoCarousel();
 }
 
 export async function reloadMascotGifsAfterContentUpdate(): Promise<void> {
   const was = carouselStarted;
+  const prevIndex = index;
   stopCarouselInterval();
   await reloadGifList();
-  if (was && fileNames.length) {
-    await showAt(index);
-    if (fileNames.length >= 2) {
-      carouselInterval = setInterval(() => {
-        void showAt(index + 1);
-      }, CAROUSEL_INTERVAL_MS);
-    }
-  } else if (!fileNames.length) {
+  if (!fileNames.length) {
     await showPlaceholder();
+    return;
+  }
+  if (!was) return;
+  index = Math.min(prevIndex, fileNames.length - 1);
+  if (fileNames.length >= 2) {
+    carouselInterval = setInterval(() => {
+      void showAt(index + 1);
+    }, CAROUSEL_INTERVAL_MS);
   }
 }
 

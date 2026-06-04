@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   computeProgress,
+  cycleElapsedPct,
   fairDailyCents,
+  isCycleOverPace,
   PILL_RED_RATIO,
   pacingStressPct,
 } from "./budget.js";
@@ -28,6 +30,16 @@ function period(
     },
   };
 }
+
+test("isCycleOverPace: used % ahead of elapsed time in cycle", () => {
+  const start = Date.UTC(2026, 5, 2);
+  const end = Date.UTC(2026, 6, 2);
+  const now = Date.UTC(2026, 5, 4);
+  const elapsed = cycleElapsedPct(start, end, now);
+  assert.ok(elapsed < 10);
+  assert.equal(isCycleOverPace(8.4, start, end, now), true);
+  assert.equal(isCycleOverPace(5, start, end, now), false);
+});
 
 test("pacingStress rises when runway daily is below fair daily", () => {
   const start = NOW - 10 * 86_400_000;

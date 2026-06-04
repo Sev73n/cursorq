@@ -1,6 +1,9 @@
 import type { UsageCategoryRow, UsageModelRow } from "./types.js";
 
 export interface RawUsageEvent {
+  /** Unix ms as string or number */
+  timestamp?: string | number;
+  isChargeable?: boolean;
   model?: string;
   requestsCosts?: number;
   chargedCents?: number;
@@ -39,6 +42,42 @@ function eventWeight(e: RawUsageEvent): number {
   return e.chargedCents ?? e.requestsCosts ?? eventTokens(e);
 }
 
+function parseEventMs(ts: string | number | undefined): number | null {
+  if (ts == null) return null;
+  const n = typeof ts === "number" ? ts : Number(ts);
+  if (!Number.isFinite(n)) return null;
+  return n < 1e12 ? n * 1000 : n;
+}
+
+export function todayRangeMs(now = new Date()): { start: number; end: number } {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return { start: start.getTime(), end: now.getTime() };
+}
+
+/** 按本地日历日汇总今日计费（美分），与 Dashboard 事件一致 */
+export function sumTodayChargedCents(
+  events: RawUsageEvent[],
+  now = new Date()
+): number {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  const t0 = start.getTime();
+  const t1 = end.getTime();
+  let sum = 0;
+  for (const e of events) {
+    const ms = parseEventMs(e.timestamp);
+    if (ms == null || ms < t0 || ms > t1) continue;
+    if (e.isChargeable === false) continue;
+    const cents = e.chargedCents ?? e.requestsCosts;
+    if (cents != null && Number.isFinite(cents) && cents > 0) {
+      sum += cents;
+    }
+  }
+  return Math.round(sum * 100) / 100;
+}
+
 export function formatTokensLabel(tokens: number, locale: "zh" | "en"): string {
   if (tokens >= 100_000_000) {
     const n = tokens / 100_000_000;
@@ -75,10 +114,11 @@ export function isAutoBucketModel(
   return false;
 }
 
-export async function fetchUsageEventsInCycle(
+async function fetchUsageEventsInRange(
   accessToken: string,
-  cycleStartMs: number,
-  cycleEndMs: number
+  startMs: number,
+  endMs: number,
+  maxPages: number
 ): Promise<RawUsageEvent[]> {
   const cookie = sessionCookie(accessToken);
   if (!cookie) return [];
@@ -86,24 +126,26 @@ export async function fetchUsageEventsInCycle(
   const all: RawUsageEvent[] = [];
   const pageSize = 100;
   let page = 1;
-  const maxPages = 20;
 
   while (page <= maxPages) {
-    const url = new URL(
-      "https://cursor.com/api/dashboard/get-filtered-usage-events"
+    const res = await fetch(
+      "https://cursor.com/api/dashboard/get-filtered-usage-events",
+      {
+        method: "POST",
+        headers: {
+          Cookie: cookie,
+          Origin: "https://cursor.com",
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          startDate: String(startMs),
+          endDate: String(endMs),
+          page,
+          pageSize,
+        }),
+      }
     );
-    url.searchParams.set("startDate", String(cycleStartMs));
-    url.searchParams.set("endDate", String(Math.min(Date.now(), cycleEndMs)));
-    url.searchParams.set("page", String(page));
-    url.searchParams.set("pageSize", String(pageSize));
-
-    const res = await fetch(url.toString(), {
-      headers: {
-        Cookie: cookie,
-        Origin: "https://cursor.com",
-        Accept: "application/json",
-      },
-    });
     if (!res.ok) break;
 
     const raw = (await res.json()) as {
@@ -119,6 +161,28 @@ export async function fetchUsageEventsInCycle(
   }
 
   return all;
+}
+
+export async function fetchUsageEventsInCycle(
+  accessToken: string,
+  cycleStartMs: number,
+  cycleEndMs: number
+): Promise<RawUsageEvent[]> {
+  return fetchUsageEventsInRange(
+    accessToken,
+    cycleStartMs,
+    Math.min(Date.now(), cycleEndMs),
+    20
+  );
+}
+
+/** 仅拉取「今天」的计费事件（用于今日已用，避免整周期汇总偏高） */
+export async function fetchUsageEventsForDay(
+  accessToken: string,
+  now = new Date()
+): Promise<RawUsageEvent[]> {
+  const { start, end } = todayRangeMs(now);
+  return fetchUsageEventsInRange(accessToken, start, end, 32);
 }
 
 function pct(n: number): number {
@@ -214,7 +278,7 @@ export function buildCategoriesFromEvents(
   if (autoPercentUsed > 0 || autoTokens > 0) {
     categories.push({
       id: "auto_composer",
-      label: locale === "zh" ? "Auto + Composer" : "Auto + Composer",
+      label: "Auto",
       tokens: autoTokens,
       tokensLabel: formatTokensLabel(autoTokens, locale),
       usagePct: pct(autoPercentUsed),

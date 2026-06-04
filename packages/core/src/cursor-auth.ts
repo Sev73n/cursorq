@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 let sqlPromise: ReturnType<typeof initSqlJs> | null = null;
 let wasmOverride: string | null = null;
 
-/** Electron 等环境可显式指定 wasm 路径 */
+/** 宿主可显式指定 sql.js wasm 路径（如便携包目录） */
 export function configureSqlWasm(absolutePath: string): void {
   wasmOverride = absolutePath;
   sqlPromise = null;

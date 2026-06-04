@@ -5,6 +5,8 @@ export {
   fairDailyCents,
   pacingStressPct,
   isTodayOverDaily,
+  isCycleOverPace,
+  cycleElapsedPct,
   PILL_RED_RATIO,
 } from "./budget.js";
 export * from "./pill-bar.js";

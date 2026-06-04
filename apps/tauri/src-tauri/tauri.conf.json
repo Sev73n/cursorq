@@ -14,14 +14,18 @@
       {
         "label": "main",
         "title": "CursorQ",
-        "width": 174,
-        "height": 40,
+        "width": 200,
+        "height": 44,
         "resizable": false,
         "decorations": false,
         "transparent": true,
+        "backgroundColor": "#00000000",
         "shadow": false,
+        "visible": false,
         "alwaysOnTop": true,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "focus": false,
+        "focusable": false
       }
     ],
     "security": {
@@ -33,6 +37,11 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": false,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ]
   }
 }

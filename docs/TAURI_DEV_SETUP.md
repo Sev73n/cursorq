@@ -1,6 +1,6 @@
 # CursorQ — Tauri 2 开发环境（Windows）
 
-Electron 方案将迁移到 **Tauri 2**。在 Windows 上请先完成下列环境，完成后在对话里回复「环境好了」。
+在 Windows 上请先完成下列环境。
 
 ## 你已具备
 
@@ -126,20 +126,13 @@ cargo build
 
 ---
 
-## 迁移后项目结构（预告）
+## 项目结构
 
 ```
 cursorq/
-  packages/core/          # 保留（TypeScript，用量/文案逻辑）
-  apps/tauri/             # 新建 Tauri 2 壳（托盘 + 圆角浮窗）
-  apps/desktop/           # Electron（迁移完成后可删）
+  packages/core/    # TypeScript：用量、文案、鉴权
+  apps/tauri/       # Tauri 2：托盘 + 圆角浮窗
 ```
-
-Tauri 侧优势：
-
-- 窗口可用 **透明 + 圆角**（`decorations: false` + CSS），方窗黑角问题比 Electron 少
-- 体积、内存更小
-- 拖动用 Rust 侧 `start_dragging`，避免 `-webkit-app-region` 吞点击
 
 ---
 
@@ -147,6 +140,3 @@ Tauri 侧优势：
 
 **Q: 黑角是跟随系统深色主题吗？**  
 A: 主要是 **矩形窗口 + 圆角内容** 露出的窗口底色，不是主题染色。Tauri 用透明窗 + 仅绘制药丸区域可缓解。
-
-**Q: 双击跳左上角？**  
-A: Electron 无边框窗的已知怪异行为；迁移 Tauri 后会重做窗口事件，不沿用 Electron 逻辑。

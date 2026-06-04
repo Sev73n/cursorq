@@ -23,9 +23,7 @@ npm run dev
 cursorq/
   packages/core/       # 鉴权、Cursor API、预算与胶囊配色
   apps/tauri/          # Tauri 胶囊（主程序）
-  apps/desktop/        # Electron 版（可选）
-  assets/copy/         # 开发用 jokes / states
-  content/             # GitHub 远程更新源（manifest + copy + mascot）
+  content/             # 启动即用预设；约 30s 后可联网合并更新（不覆盖本地）
   scripts/             # 用量刷新、Windows 打包
   config/              # remote.json.example
   release/             # 发布说明（zip/exe 本地生成，不进 Git）
@@ -38,15 +36,7 @@ cursorq/
 - 使用 Cursor **非公开** Dashboard 接口，可能随版本失效；数据仅保存在本机。
 - 不拦截 Cursor 请求，仅做用量提醒与可视化。
 - **点击胶囊**展开用量详情（下拉动画）；**托盘右键**可切换中/英文、刷新、显示/隐藏。
-- Windows 浮窗采用 **不透明圆角窗**（避免 Electron 透明窗白角）；长期可考虑 Tauri / 原生层。
-
-## 浮窗实现说明
-
-| 方案 | 白角问题 | 说明 |
-|------|----------|------|
-| Electron `transparent: true` | 易出现 | 当前已改为不透明 `#0f172a` 圆角壳 |
-| Tauri 2 | 较好 | 体积更小，需 Rust 环境 |
-| Win32 `SetWindowRgn` | 最好 | 真异形窗，开发成本高 |
+- 主程序为 **Tauri 2** 无边框圆角浮窗；开发环境见 [docs/TAURI_DEV_SETUP.md](docs/TAURI_DEV_SETUP.md)。
 
 ## 替换吉祥物
 

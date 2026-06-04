@@ -29,6 +29,7 @@ function check(file) {
   return ok;
 }
 
-const a = check(path.join(root, "assets/copy/jokes.json"));
-const b = check(path.join(root, "assets/copy/states.json"));
+const copyDir = path.join(root, "content/copy");
+const a = check(path.join(copyDir, "jokes.json"));
+const b = check(path.join(copyDir, "states.json"));
 process.exit(a && b ? 0 : 1);

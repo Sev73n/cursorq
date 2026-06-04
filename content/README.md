@@ -1,17 +1,20 @@
-# 远程更新内容（GitHub）
+# CursorQ 内置内容
 
-推送到仓库后，用户安装包里的 `config/remote.json` 指向此目录的 **raw** 地址，例如：
+## 运行策略
 
-`https://raw.githubusercontent.com/<你的用户名>/cursorq/main/content`
+| 时机 | 行为 |
+|------|------|
+| **启动瞬间** | 使用本目录预设（`copy/`、`mascot/`），**无需联网** |
+| **约 30 秒后** | 若 `config/remote.json` 已开启，从 GitHub 拉取并 **合并** 更新 |
+| **合并规则** | 只 **追加** 远程新 joke / 新 gif；**不覆盖** 已有本地文件与用户手动添加的内容 |
 
-## 更新流程
+### 合并细则
 
-1. 修改本目录下的 `copy/jokes.json`、`copy/states.json` 或 `mascot/gifs/*`
-2. 将 `manifest.json` 里的 **`version` 加 1**（客户端靠版本号判断是否需要下载）
-3. 推送到 GitHub
-4. 用户启动 CursorQ **约 1 分钟后**自动拉取；或托盘「同步文案/动图」
+- **`copy/jokes.json` / `states.json`**：按 `line1+line2`（states 含 `state`）去重；本地条目优先保留，远程仅补充新条。
+- **`mascot/gifs/*`、占位图等**：若本地已有同名文件则 **跳过下载**；用户自己丢进 `gifs/` 的动图会一直保留。
+- **不在 manifest 里的本地 gif**：不会被删除。
 
-## 目录结构（与安装包一致）
+## 目录结构
 
 ```
 content/
@@ -22,7 +25,26 @@ content/
   mascot/
     default.png
     gifs/
-      *.gif
+      animation.gif   # 启动占位动图
+      …               # 其它 gif：1 分钟后轮播
 ```
 
-打包后请把安装目录 `config/remote.json` 里的 `contentBaseUrl` 改成你的 raw 前缀（模板见仓库 `config/remote.json.example`）。
+## 修改默认内容
+
+1. 编辑本目录文件，或将动图放入 `mascot/gifs/`
+2. 推送到 GitHub 前：`manifest.json` 的 `version` **+1**，`files` 列出新增路径
+3. 重启应用或等 30 秒合并 / 托盘「同步文案/动图」
+
+## 配置在线合并（可选）
+
+`config/remote.json`：
+
+```json
+{
+  "enabled": true,
+  "contentBaseUrl": "https://raw.githubusercontent.com/<用户>/cursorq/main/content",
+  "syncDelayMs": 30000
+}
+```
+
+`enabled: false` 或留空 `contentBaseUrl` 时仅使用内置预设，不联网。

@@ -5,10 +5,8 @@
 ```
 cursorq/
 ├── apps/tauri/          # 主程序（Tauri 胶囊）
-├── apps/desktop/        # Electron 版（可选）
 ├── packages/core/       # 核心逻辑（TypeScript 源码）
-├── assets/copy/         # 默认 jokes / states（开发用）
-├── content/             # 远程更新源（推 GitHub 后用户端拉取）
+├── content/             # 内置默认内容 + 远程更新源（manifest、copy、mascot）
 ├── scripts/             # refresh-usage、打包脚本
 ├── release/             # 发布说明 + remote.json.example（无 exe/zip）
 ├── config/              # remote.json.example

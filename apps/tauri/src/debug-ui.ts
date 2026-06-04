@@ -13,7 +13,10 @@ import { formatTodayMetricValue } from "./debug-ui-format.js";
 
 export type DebugPaintFn = (p: ProgressPaint) => void;
 
-export { formatTodayMetricValue } from "./debug-ui-format.js";
+export {
+  formatTodayMetricValue,
+  formatTotalMetricValue,
+} from "./debug-ui-format.js";
 
 function metricDebugRow(
   label: string,

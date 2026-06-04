@@ -92,9 +92,17 @@ export function settleYesterdayBank(
   };
 }
 
+export interface EnsureTodaySnapshotOptions {
+  /** 今日事件汇总（美分），用于首日 baseline，对齐 Cursor 仪表盘 */
+  todaySpendCents?: number;
+  /** 跨日：昨日末次刷新的 includedSpend，作为今日 baseline */
+  initialBaselineCents?: number;
+}
+
 export function ensureTodaySnapshot(
   state: AppState,
-  period: PeriodUsage
+  period: PeriodUsage,
+  opts?: EnsureTodaySnapshotOptions
 ): AppState {
   const key = todayKey();
   const total = period.planUsage.includedSpend;
@@ -103,13 +111,39 @@ export function ensureTodaySnapshot(
     period.billingCycleEnd
   );
   const existing = state.snapshots.find((s) => s.date === key);
+  let baseline = existing?.baselineCents ?? total;
+  if (!existing) {
+    if (opts?.initialBaselineCents != null) {
+      baseline = Math.max(0, opts.initialBaselineCents);
+    } else if (opts?.todaySpendCents != null && opts.todaySpendCents > 0) {
+      baseline = Math.max(0, total - opts.todaySpendCents);
+    }
+  }
   const snap = {
     date: key,
-    baselineCents: existing?.baselineCents ?? total,
+    baselineCents: baseline,
     dailyBudgetCents: daily,
   };
   const rest = state.snapshots.filter((s) => s.date !== key);
   return { ...state, snapshots: [...rest, snap].slice(-40) };
+}
+
+/** 刷新后把今日 baseline 与 resolved 今日用量对齐 */
+export function syncTodayBaseline(
+  state: AppState,
+  includedSpend: number,
+  todayUsedCents: number
+): AppState {
+  const key = todayKey();
+  const snap = state.snapshots.find((s) => s.date === key);
+  if (!snap) return state;
+  const baseline = Math.max(0, includedSpend - Math.max(0, todayUsedCents));
+  if (snap.baselineCents === baseline) return state;
+  const rest = state.snapshots.filter((s) => s.date !== key);
+  return {
+    ...state,
+    snapshots: [...rest, { ...snap, baselineCents: baseline }].slice(-40),
+  };
 }
 
 export function isTodayOverDaily(
@@ -119,11 +153,86 @@ export function isTodayOverDaily(
   return todayUsedCents > Math.max(1, dailyBudgetCents);
 }
 
+/** 周期已过去的时间占比（0–100），用于和 Cursor 总量 % 对比 */
+export function cycleElapsedPct(
+  cycleStartMs: number,
+  cycleEndMs: number,
+  now = Date.now()
+): number {
+  const total = Math.max(1, cycleEndMs - cycleStartMs);
+  const elapsed = Math.max(0, Math.min(total, now - cycleStartMs));
+  return (elapsed / total) * 100;
+}
+
+/**
+ * 总量 % 是否超前于「按时间均匀消耗」的进度（面板「超前」；与今日「超额」独立）。
+ */
+export function isCycleOverPace(
+  cycleUsedPct: number,
+  cycleStartMs: number,
+  cycleEndMs: number,
+  now = Date.now(),
+  bufferPct = 0
+): boolean {
+  return (
+    cycleUsedPct >
+    cycleElapsedPct(cycleStartMs, cycleEndMs, now) + bufferPct
+  );
+}
+
 export function todayUsedCents(state: AppState, includedSpend: number): number {
   const key = todayKey();
   const snap = state.snapshots.find((s) => s.date === key);
   if (!snap) return 0;
   return Math.max(0, includedSpend - snap.baselineCents);
+}
+
+/**
+ * 合并「快照增量」与「今日事件汇总」；事件汇总异常偏高时只用快照（避免整周期误计）。
+ */
+/** 修复曾被错误事件汇总写坏的今日 baseline */
+export function repairCorruptTodaySnapshot(
+  state: AppState,
+  includedSpend: number,
+  dailyBudgetCents: number
+): AppState {
+  const key = todayKey();
+  const snap = state.snapshots.find((s) => s.date === key);
+  if (!snap) return state;
+  const used = Math.max(0, includedSpend - snap.baselineCents);
+  const daily = Math.max(1, dailyBudgetCents);
+  if (used <= daily * 2) return state;
+  const rest = state.snapshots.filter((s) => s.date !== key);
+  return { ...state, snapshots: rest };
+}
+
+export interface ResolveTodayUsedOptions {
+  /** 事件已按「当天」时间窗拉取时，勿用日预算倍数误判（Ultra 日花 $60+ 很常见） */
+  dayScopedEvents?: boolean;
+}
+
+export function resolveTodayUsedCents(
+  snapUsed: number,
+  eventsTodayCents: number,
+  dailyBudgetCents: number,
+  cycleUsedCents: number,
+  opts?: ResolveTodayUsedOptions
+): number {
+  const snap = Math.max(0, snapUsed);
+  const events = Math.max(0, eventsTodayCents);
+  const daily = Math.max(1, dailyBudgetCents);
+  const cycle = Math.max(0, cycleUsedCents);
+
+  if (events <= 0) return snap;
+
+  const implausible = opts?.dayScopedEvents
+    ? events > cycle * 1.02
+    : events > daily * 3 ||
+      (snap > 0 && events > snap * 4) ||
+      events > Math.max(daily, cycle) * 2;
+  if (implausible) return snap;
+
+  return Math.max(snap, events);
 }
 
 export interface ComputeProgressOptions {

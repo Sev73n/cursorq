@@ -9,6 +9,7 @@ import type {
 import {
   buildCategoriesFromEvents,
   fetchUsageEventsInCycle,
+  type RawUsageEvent,
 } from "./usage-events.js";
 import { daysLeftInCycle } from "./budget.js";
 import { resolvePlanTier } from "./plan-tier.js";
@@ -95,6 +96,11 @@ function legacyRows(pu: PeriodUsage["planUsage"]): UsageBreakdownRow[] {
   return rows;
 }
 
+export interface BuildUsageDetailOptions {
+  /** false = 仅用 API 百分比展示分类，不拉整周期事件（刷新要快） */
+  fetchEvents?: boolean;
+}
+
 export async function buildUsageDetail(
   period: PeriodUsage,
   plan: PlanInfo,
@@ -102,7 +108,9 @@ export async function buildUsageDetail(
   dailyBudgetCents: number,
   daysLeft: number,
   accessToken: string,
-  locale: "zh" | "en" = "zh"
+  locale: "zh" | "en" = "zh",
+  prefetchedEvents?: RawUsageEvent[],
+  opts?: BuildUsageDetailOptions
 ): Promise<UsageDetail> {
   const pu = period.planUsage;
   const apiPct = pu.apiPercentUsed ?? 0;
@@ -110,12 +118,21 @@ export async function buildUsageDetail(
   const autoBucket = period.autoBucketModels ?? [];
 
   let categories: UsageCategoryRow[] = [];
+  let events = prefetchedEvents ?? [];
+  const shouldFetch =
+    opts?.fetchEvents !== false && events.length === 0;
+  if (shouldFetch) {
+    try {
+      events = await fetchUsageEventsInCycle(
+        accessToken,
+        period.billingCycleStart,
+        period.billingCycleEnd
+      );
+    } catch {
+      events = [];
+    }
+  }
   try {
-    const events = await fetchUsageEventsInCycle(
-      accessToken,
-      period.billingCycleStart,
-      period.billingCycleEnd
-    );
     categories = buildCategoriesFromEvents(
       events,
       autoBucket,

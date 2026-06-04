@@ -11,7 +11,15 @@ export type { JokeEntry, StateEntry } from "./copy.js";
 export * from "./store.js";
 export {
   ensureTodaySnapshot,
+  repairCorruptTodaySnapshot,
+  resolveTodayUsedCents,
+  syncTodayBaseline,
+  todayKey,
   todayUsedCents,
+} from "./budget.js";
+export type {
+  EnsureTodaySnapshotOptions,
+  ResolveTodayUsedOptions,
 } from "./budget.js";
 export * from "./usage-detail.js";
 export * from "./plan-tier.js";

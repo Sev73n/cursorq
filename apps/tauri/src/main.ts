@@ -22,22 +22,33 @@ import type { ProgressPaint } from "@cursorq/core";
 import {
   clearDebugToolbar,
   formatTodayMetricValue,
+  formatTotalMetricValue,
   renderDebugMetrics,
   renderDebugToolbar,
 } from "./debug-ui.js";
+import {
+  bindWindowChromeState,
+  installWindowChromeGuard,
+  queueStabilizeWindowChrome,
+  stabilizeWindowChrome,
+} from "./window-chrome.js";
 
-const PILL_H = 40;
-const WIN_W = 174;
+const PILL_H = 44;
+const WIN_W = 200;
+/** 逻辑像素高度 */
+let windowLogicalH = PILL_H;
 const PANEL_PAD = 24;
 const PANEL_MIN = 240;
 const PANEL_MAX = 520;
 const POLL_MS = 30 * 60 * 1000;
-const REEL_MS = 440;
+const REEL_GAP = 10;
 
 let locale: Locale = "zh";
 let expanded = false;
 let jokeIndex = 0;
 const openCats = new Set<string>();
+
+bindWindowChromeState(() => ({ logicalH: windowLogicalH, expanded }));
 
 
 interface JokeItem {
@@ -80,6 +91,7 @@ interface Payload {
       totalPercentUsed: number;
       daysLeft: number;
       daysLeftPct: number;
+      cycleTotalDays?: number;
       displayMessage?: string;
       tierLabel?: string;
     };
@@ -90,8 +102,24 @@ interface Payload {
   error?: string;
 }
 
+type UsageCategory = NonNullable<
+  NonNullable<Payload["detail"]>["categories"]
+>[number];
+
 const LONG_PRESS_MS = 480;
 const DRAG_MOVE_PX = 6;
+
+const USAGE_BUCKET_IDS = ["api", "auto_composer"] as const;
+
+function isUsageBucketId(id: string): id is (typeof USAGE_BUCKET_IDS)[number] {
+  return (USAGE_BUCKET_IDS as readonly string[]).includes(id);
+}
+
+function usageBucketLabel(id: string, fallback: string): string {
+  if (id === "api") return "API";
+  if (id === "auto_composer") return "Auto";
+  return fallback;
+}
 
 function hasRealModels(
   models: { model: string }[] | undefined
@@ -102,6 +130,22 @@ function hasRealModels(
       return n && n !== "default" && n !== "auto" && n !== "unknown";
     }) ?? false
   );
+}
+
+function renderBucketModels(models: UsageCategory["models"]): string {
+  if (!hasRealModels(models)) return "";
+  return `<div class="usage-card-models">
+    ${models
+      .map((m) => {
+        const n = m.model.trim().toLowerCase();
+        if (!n || n === "default" || n === "auto" || n === "unknown") return "";
+        return `<div class="model-row model-row--bucket">
+          <span class="model-name" title="${m.model}">${m.model}</span>
+          <span class="model-pct">${m.usagePct}%</span>
+        </div>`;
+      })
+      .join("")}
+  </div>`;
 }
 
 let lastPayload: Payload | null = null;
@@ -135,9 +179,12 @@ function paintBar(p: Payload["progress"] | ProgressPaint | null | undefined) {
     redPct: p.redPct ?? 0,
     warnYellowPct: p.warnYellowPct ?? 0,
   });
+  const red = p.redPct ?? 0;
+  bar.style.backgroundColor = red > 0.02 ? "#9a3412" : "#16a34a";
   bar.style.background = gradient;
   bar.dataset.blue = String(Math.round((p.bluePct ?? 0) * 100));
-  bar.dataset.red = String(Math.round((p.redPct ?? 0) * 100));
+  bar.dataset.red = String(Math.round(red * 100));
+  queueStabilizeWindowChrome();
 }
 
 function metricRow(
@@ -162,9 +209,7 @@ function metricRow(
 function updateHintLine() {
   const hint = el("hint");
   if (!hint) return;
-  hint.textContent = debugMode
-    ? t(locale, "debugOn")
-    : t(locale, "refreshHint");
+  hint.textContent = t(locale, "dataSource");
   hint.classList.toggle("hint-debug", debugMode);
 }
 
@@ -204,8 +249,15 @@ function renderMetrics(m: NonNullable<Payload["detail"]>["metrics"]) {
 
   clearDebugToolbar(toolbar);
 
+  const cycleStart = lastPayload?.detail?.cycleStartMs ?? 0;
+  const cycleEnd = lastPayload?.detail?.cycleEndMs ?? 0;
+  const totalLabel =
+    cycleStart > 0 && cycleEnd > cycleStart
+      ? formatTotalMetricValue(locale, tier, cyclePct, cycleStart, cycleEnd)
+      : `${tier} · ${cyclePct}%`;
+
   box.innerHTML = [
-    metricRow(t(locale, "total"), `${tier} · ${cyclePct}%`, cyclePct, tierTone),
+    metricRow(t(locale, "total"), totalLabel, cyclePct, tierTone),
     metricRow(
       t(locale, "today"),
       formatTodayMetricValue(
@@ -241,7 +293,7 @@ async function remeasureExpandedPanel() {
   if (!reel?.classList.contains("open")) return;
   const panelH = await measurePanelHeight();
   reel.style.maxHeight = `${panelH}px`;
-  applyWindowHeight(PILL_H + panelH + 8);
+  void applyWindowHeight(PILL_H + panelH + REEL_GAP);
 }
 
 function toggleDebugMode() {
@@ -261,6 +313,7 @@ function toggleDebugMode() {
     paintBar(lastPayload.progress);
   }
   void remeasureExpandedPanel();
+  queueStabilizeWindowChrome();
 }
 
 function renderCategories(
@@ -273,20 +326,52 @@ function renderCategories(
     return;
   }
 
-  list.innerHTML = categories
+  const buckets = USAGE_BUCKET_IDS.map((id) =>
+    categories.find((c) => c.id === id)
+  ).filter((c): c is NonNullable<typeof c> => !!c);
+  const others = categories.filter((c) => !isUsageBucketId(c.id));
+
+  const bucketHtml = buckets.length
+    ? `<div class="usage-buckets">${buckets
+        .map((cat) => {
+          const expandable = hasRealModels(cat.models);
+          const open = expandable && openCats.has(cat.id);
+          const label = usageBucketLabel(cat.id, cat.label);
+          const chevron = expandable
+            ? `<span class="usage-card-chevron">${open ? "▾" : "▸"}</span>`
+            : "";
+          const headInner = `
+            <span class="usage-card-label">${chevron}${label}</span>
+            <span class="usage-card-pct">${cat.usagePct}%</span>`;
+          const head = expandable
+            ? `<button type="button" class="usage-card-head" data-cat-toggle="${cat.id}">${headInner}</button>`
+            : `<div class="usage-card-head usage-card-head--static">${headInner}</div>`;
+          return `<div class="usage-card ${open ? "open" : ""}" data-cat="${cat.id}">
+            ${head}
+            ${renderBucketModels(cat.models)}
+          </div>`;
+        })
+        .join("")}</div>`
+    : "";
+
+  const otherHtml = others
     .map((cat) => {
       const expandable = hasRealModels(cat.models);
       const open = expandable && openCats.has(cat.id);
       const modelsHtml = expandable
         ? cat.models
-            .map(
-              (m) => `
+            .map((m) => {
+              const n = m.model.trim().toLowerCase();
+              if (!n || n === "default" || n === "auto" || n === "unknown") {
+                return "";
+              }
+              return `
           <div class="model-row">
             <span class="model-name" title="${m.model}">${m.model}</span>
             <span class="model-tokens">${m.tokensLabel}</span>
             <span class="model-pct">${m.usagePct}%</span>
-          </div>`
-            )
+          </div>`;
+            })
             .join("")
         : "";
 
@@ -310,6 +395,8 @@ function renderCategories(
     })
     .join("");
 
+  list.innerHTML = bucketHtml + otherHtml;
+
   list.querySelectorAll("[data-cat-toggle]").forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -319,7 +406,8 @@ function renderCategories(
       renderCategories(categories);
       if (expanded) {
         void measurePanelHeight().then((panelH) => {
-          applyWindowHeight(PILL_H + panelH);
+          const fullH = PILL_H + panelH + REEL_GAP;
+          void applyWindowHeight(fullH);
         });
       }
     });
@@ -329,6 +417,7 @@ function renderCategories(
 function applyCopy(copy: { line1: string; line2?: string }) {
   const line = el("jokeLine");
   if (line) line.textContent = jokeOneLine(copy);
+  queueStabilizeWindowChrome();
 }
 
 function rotateJokeLocal() {
@@ -368,6 +457,7 @@ function render(data: Payload) {
   } else {
     paintBar(data.progress);
   }
+  queueStabilizeWindowChrome();
 }
 
 async function measurePanelHeight(): Promise<number> {
@@ -381,38 +471,25 @@ async function measurePanelHeight(): Promise<number> {
   return Math.min(PANEL_MAX, Math.max(PANEL_MIN, h));
 }
 
-function applyWindowHeight(h: number) {
+async function applyWindowHeight(h: number) {
+  windowLogicalH = h;
   document.documentElement.style.height = `${h}px`;
+  document.body.style.height = `${h}px`;
   document.body.style.minHeight = `${h}px`;
-  void getCurrentWindow().setSize(new LogicalSize(WIN_W, h));
+  document.body.style.maxHeight = `${h}px`;
+  const shell = el("shell");
+  const capsuleOnly = !expanded || h <= PILL_H + 4;
+  document.documentElement.classList.toggle("pill-only", capsuleOnly);
+  if (shell) {
+    shell.classList.toggle("expanded", expanded && h > PILL_H + 4);
+  }
+  await getCurrentWindow().setSize(new LogicalSize(WIN_W, h));
+  queueStabilizeWindowChrome(16);
 }
 
 let expandBusy = false;
 
-function animateReelHeight(
-  reel: HTMLElement,
-  panelH: number,
-  opening: boolean
-): Promise<void> {
-  const gap = 8;
-  const fromWin = opening ? PILL_H : PILL_H + panelH + gap;
-  const toWin = opening ? PILL_H + panelH + gap : PILL_H;
-  const start = performance.now();
-
-  return new Promise((resolve) => {
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / REEL_MS);
-      const ease = 1 - Math.pow(1 - t, 3);
-      const reelH = opening ? panelH * ease : panelH * (1 - ease);
-      reel.style.maxHeight = `${reelH}px`;
-      applyWindowHeight(Math.round(fromWin + (toWin - fromWin) * ease));
-      if (t < 1) requestAnimationFrame(tick);
-      else resolve();
-    };
-    requestAnimationFrame(tick);
-  });
-}
-
+/** 展开/收起：无动画，一次设好高度，避免卷轴动画触发 WebView 白边 */
 async function setExpanded(on: boolean) {
   if (expandBusy || on === expanded) return;
   const reel = el("panelReel");
@@ -426,27 +503,30 @@ async function setExpanded(on: boolean) {
       shell?.classList.add("expanded");
       render(lastPayload ?? {});
       const panelH = await measurePanelHeight();
-
+      const fullH = PILL_H + panelH + REEL_GAP;
       reel.classList.add("open");
-      reel.style.maxHeight = "0px";
-      applyWindowHeight(PILL_H);
-      await animateReelHeight(reel, panelH, true);
+      reel.style.maxHeight = `${panelH}px`;
+      await applyWindowHeight(fullH);
+      await stabilizeWindowChrome();
     } else {
       expanded = false;
-      const panelH = await measurePanelHeight();
-      await animateReelHeight(reel, panelH, false);
       reel.classList.remove("open");
       reel.style.maxHeight = "0px";
       shell?.classList.remove("expanded");
-      applyWindowHeight(PILL_H);
+      await applyWindowHeight(PILL_H);
+      await stabilizeWindowChrome();
     }
   } finally {
     expandBusy = false;
   }
 }
 
+let refreshBusy = false;
+
 async function refresh(jokeIdx?: number) {
-  applyCopy({ line1: "拉取中", line2: "…" });
+  if (refreshBusy) return;
+  refreshBusy = true;
+  applyCopy({ line1: "订阅识别中", line2: "…" });
   try {
     const raw = await invoke<string>("refresh_usage", {
       jokeIndex: jokeIdx ?? jokeIndex,
@@ -462,9 +542,10 @@ async function refresh(jokeIdx?: number) {
       const panelH = await measurePanelHeight();
       if (reel) {
         reel.style.maxHeight = `${panelH}px`;
-        applyWindowHeight(PILL_H + panelH + 8);
+        await applyWindowHeight(PILL_H + panelH + REEL_GAP);
       }
     }
+    await stabilizeWindowChrome();
   } catch (e) {
     render({
       copy: {
@@ -472,6 +553,9 @@ async function refresh(jokeIdx?: number) {
         line2: String(e).slice(0, 8),
       },
     });
+  } finally {
+    refreshBusy = false;
+    queueStabilizeWindowChrome();
   }
 }
 
@@ -495,7 +579,14 @@ function bindInteractions() {
     if (dragging) return;
     dragging = true;
     suppressPointerUntil = Date.now() + 450;
-    void getCurrentWindow().startDragging();
+    void (async () => {
+      await stabilizeWindowChrome();
+      try {
+        await invoke("start_drag_capsule");
+      } catch {
+        await getCurrentWindow().startDragging();
+      }
+    })();
   };
 
   const shouldIgnoreTap = () =>
@@ -506,6 +597,7 @@ function bindInteractions() {
     dragging = false;
     pointerDown = { x: ev.clientX, y: ev.clientY };
     clearPress();
+    void stabilizeWindowChrome();
     pressTimer = setTimeout(startDrag, LONG_PRESS_MS);
   });
 
@@ -524,6 +616,7 @@ function bindInteractions() {
     pointerDown = null;
     window.setTimeout(() => {
       dragging = false;
+      queueStabilizeWindowChrome();
     }, 320);
   });
 
@@ -579,19 +672,39 @@ function bindInteractions() {
 }
 
 async function initWindow() {
-  const win = getCurrentWindow();
-  await win.setShadow(false);
-  document.documentElement.style.height = `${PILL_H}px`;
-  document.body.style.minHeight = `${PILL_H}px`;
+  installWindowChromeGuard();
+  await getCurrentWindow().setFocusable(false);
+  await applyWindowHeight(PILL_H);
+  const wantVisible = await invoke<boolean>("get_capsule_visible").catch(() => true);
+  if (wantVisible) {
+    await stabilizeWindowChrome();
+    try {
+      await invoke("show_main_inactive");
+    } catch {
+      await getCurrentWindow().show();
+    }
+    await stabilizeWindowChrome();
+  } else {
+    try {
+      await invoke("set_capsule_visible_cmd", { visible: false });
+    } catch {
+      await getCurrentWindow().hide();
+    }
+  }
   document.addEventListener("contextmenu", (ev) => ev.preventDefault());
   await initMascotGifs();
 }
 
 bindInteractions();
-void initWindow();
+void initWindow().then(() => void refresh());
 void listen("cursorq:refresh", () => refresh());
 void listen("cursorq:content-updated", () => {
-  void reloadMascotGifsAfterContentUpdate();
+  void reloadMascotGifsAfterContentUpdate().then(() => stabilizeWindowChrome());
+});
+void listen("cursorq:fix-chrome", () => {
+  void stabilizeWindowChrome();
+});
+void listen("cursorq:window-shown", () => {
+  void stabilizeWindowChrome();
 });
 setInterval(() => void refresh(), POLL_MS);
-void refresh();

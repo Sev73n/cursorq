@@ -5,34 +5,32 @@
 ```
 cursorq/
   CursorQ.exe          # 主程序
-  copy/                # 文案（可本地改，也会被 GitHub 同步覆盖）
-    jokes.json
-    states.json
-  mascot/
-    default.png        # 启动占位图
-    gifs/              # 动图（1 分钟后轮播）
+  content/             # 内置默认内容（离线可用）
+    manifest.json
+    copy/              # 文案
+    mascot/            # 占位图 + 动图
   data/
-    app-state.json     # 缓存配置（用量、语言、笑话索引等）
-    content-sync.json  # 远程内容版本（自动生成）
+    app-state.json     # 用量、语言等（自动生成）
+    content-sync.json  # 内容版本（自动生成）
   config/
-    remote.json        # 从 remote.json.example 复制并填写 GitHub raw 地址
+    remote.json        # 可选在线更新（默认关闭）
   logs/
-    cursorq.log        # 排错日志
+    cursorq.log
   scripts/
     refresh-usage.mjs
-  node_modules/        # 刷新用量所需（打包时带入）
-  packages/core/dist/  # 核心库
+  node_modules/
 ```
 
 ## 使用前
 
-1. 编辑 `config/remote.json`，把 `contentBaseUrl` 换成你 GitHub 上 `content/` 文件夹的 raw 前缀。
-2. 本机需已安装 **Node.js 20+**（用于读取 Cursor 账号与用量）；日志在 `logs/cursorq.log`。
-3. 双击 `CursorQ.exe` 运行。
+1. 本机需 **Node.js 20+**（读取 Cursor 用量）与已登录 **Cursor 桌面版**。
+2. 双击 `CursorQ.exe` 即可运行；启动即用 `content/` 预设，**无需联网**。
+3. 可选：`config/remote.json` 开启后，约 **30 秒** 联网 **合并** 远程新 joke/gif（不覆盖本地与手动添加）。
 
-## 远程更新
+## 远程合并（可选）
 
-- 启动 **60 秒**后自动检查 `manifest.json` 版本并下载新文案/动图。
-- 托盘菜单 **「同步文案/动图」** 可立即同步。
+- 只 **追加** 远程新内容；已有本地文件、用户自增 gif **不会被覆盖**。
+- 托盘 **「同步文案/动图」** 可随时手动触发合并。
+- 未开启或离线时始终使用安装包内的 `content/`。
 
-仓库内维护 `content/manifest.json`，每次更新将 `version` +1 后 push 即可。
+仓库维护 `content/manifest.json`，每次更新将 `version` +1 后 push。

@@ -1,10 +1,10 @@
 :root {
-  --w: 174px;
-  --panel-w: 156px;
-  --pill-h: 40px;
-  --radius: 20px;
-  --panel-radius: 14px;
-  --reel-gap: 8px;
+  --w: 200px;
+  --panel-w: 188px;
+  --pill-h: 44px;
+  --radius: 22px;
+  --panel-radius: 16px;
+  --reel-gap: 10px;
   --bg: #0f172a;
   --text: #f8fafc;
   --muted: #94a3b8;
@@ -13,7 +13,14 @@
   --fill-green: linear-gradient(90deg, #16a34a, #4ade80);
   --fill-blue: linear-gradient(90deg, #2563eb, #7dd3fc);
   --fill-amber: linear-gradient(90deg, #d97706, #facc15);
-  --reel-duration: 0.44s;
+}
+
+/* 禁止任何 CSS 动画/过渡，避免 WebView 重绘时闪白边 */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 * {
@@ -25,12 +32,21 @@
 html,
 body {
   width: var(--w);
+  height: var(--pill-h);
   min-height: var(--pill-h);
+  max-height: var(--pill-h);
   overflow: hidden;
   background: transparent !important;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+}
+
+/* WebView2 矩形视口在圆角处会露白，收起态用 clip 与 Win HRGN 双保险 */
+html.pill-only,
+html.pill-only body {
+  clip-path: inset(0 round var(--radius));
+  -webkit-clip-path: inset(0 round var(--radius));
 }
 
 .shell {
@@ -39,6 +55,19 @@ body {
   flex-direction: column;
   align-items: center;
   background: transparent;
+  overflow: hidden;
+}
+
+.shell:not(.expanded) {
+  height: var(--pill-h);
+  max-height: var(--pill-h);
+}
+
+.shell:not(.expanded) .panel-reel {
+  visibility: hidden;
+  height: 0;
+  margin: 0;
+  min-height: 0;
 }
 
 /* 胶囊始终完整圆角，展开时形状不变 */
@@ -52,8 +81,13 @@ body {
   z-index: 3;
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--bg);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   cursor: move;
   touch-action: none;
 }
@@ -61,7 +95,12 @@ body {
 .pill-bar {
   position: absolute;
   inset: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  /* 渐变未铺满时与左侧绿色一致，避免圆角裁切处露出深色方角 */
+  background-color: #16a34a;
   pointer-events: none;
+  contain: paint;
 }
 
 .pill-row {
@@ -70,16 +109,17 @@ body {
   display: flex;
   align-items: center;
   height: var(--pill-h);
-  gap: 4px;
-  padding-right: 8px;
+  gap: 6px;
+  padding-right: 10px;
   pointer-events: none;
+  border-radius: var(--radius);
 }
 
 .mascot-wrap {
-  flex: 0 0 30px;
-  width: 30px;
-  height: 30px;
-  margin-left: 5px;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  margin-left: 6px;
   border-radius: 50%;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.55);
@@ -89,8 +129,8 @@ body {
 
 .mascot-gif {
   display: block;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   object-position: center;
   image-rendering: auto;
@@ -102,9 +142,9 @@ body {
 .joke-line {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--text);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   white-space: nowrap;
@@ -120,35 +160,34 @@ body {
   margin-top: var(--reel-gap);
   max-height: 0;
   overflow: hidden;
-  transition: max-height var(--reel-duration) cubic-bezier(0.22, 1, 0.36, 1);
+  transition: none;
   transform-origin: top center;
-  will-change: max-height;
 }
 
 .panel {
   color: #e2e8f0;
   background: var(--bg);
   border-radius: var(--panel-radius);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
 }
 
 .panel-inner {
   display: flex;
   flex-direction: column;
-  padding: 10px 10px 12px;
-  max-height: 460px;
+  padding: 12px 12px 14px;
+  max-height: 520px;
   overflow: hidden;
 }
 
 .panel-head {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .panel-tier {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 4px;
+  line-height: 1.25;
+  margin-bottom: 5px;
   letter-spacing: 0.03em;
 }
 
@@ -184,31 +223,31 @@ body {
 }
 
 .cycle {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--muted);
-  line-height: 1.35;
+  line-height: 1.4;
   word-break: break-word;
 }
 
 .metrics {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .metric {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .metric-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 6px;
-  font-size: 9px;
+  gap: 8px;
+  font-size: 10px;
 }
 
 .metric-label {
@@ -219,13 +258,14 @@ body {
 .metric-val {
   color: var(--text);
   font-weight: 600;
+  font-size: 10px;
   text-align: right;
-  line-height: 1.2;
+  line-height: 1.3;
   word-break: break-word;
 }
 
 .metric-track {
-  height: 6px;
+  height: 7px;
   border-radius: 999px;
   background: var(--track);
   overflow: hidden;
@@ -234,7 +274,7 @@ body {
 .metric-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.35s ease;
+  transition: none;
 }
 
 .metric-fill.green {
@@ -285,18 +325,18 @@ body {
 }
 
 .debug-pill-hint {
-  margin: 4px 0 0;
-  font-size: 8px;
-  line-height: 1.35;
+  margin: 5px 0 0;
+  font-size: 9px;
+  line-height: 1.4;
   color: #94a3b8;
 }
 
 .debug-toolbar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 8px 0;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   flex-shrink: 0;
 }
@@ -328,10 +368,6 @@ body {
 .debug-preset-btn:hover {
   border-color: #fbbf24;
   background: rgba(51, 65, 85, 0.95);
-}
-
-.debug-preset-btn:active {
-  transform: scale(0.98);
 }
 
 .debug-exit-btn {
@@ -379,15 +415,80 @@ body {
 .usage-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
 }
 
+.usage-buckets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.usage-card {
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.45);
+  overflow: hidden;
+}
+
+.usage-card-head {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+}
+
+.usage-card-head--static {
+  cursor: default;
+}
+
+.usage-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.usage-card-chevron {
+  font-size: 8px;
+  margin-right: 3px;
+  color: var(--muted);
+}
+
+.usage-card-pct {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-card-models {
+  display: none;
+  padding: 0 6px 8px;
+}
+
+.usage-card.open .usage-card-models {
+  display: block;
+}
+
+.model-row--bucket {
+  grid-template-columns: 1fr auto;
+}
+
 .cat {
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(30, 41, 59, 0.45);
   overflow: hidden;
 }
@@ -397,13 +498,13 @@ body {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr auto auto;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
-  padding: 7px 6px;
+  padding: 8px 8px;
   border: none;
   background: transparent;
   color: var(--text);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-align: left;
 }
@@ -417,28 +518,28 @@ body {
 }
 
 .cat-tokens {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
 }
 
 .cat-pct {
-  font-size: 8px;
+  font-size: 9px;
   color: var(--accent);
-  min-width: 2.2em;
+  min-width: 2.4em;
   text-align: right;
 }
 
 .cat-chevron {
-  font-size: 8px;
+  font-size: 9px;
   color: var(--muted);
   margin-right: 2px;
 }
 
 .cat-models {
   display: none;
-  padding: 0 6px 6px;
+  padding: 0 8px 8px;
 }
 
 .cat.open .cat-models {
@@ -448,9 +549,9 @@ body {
 .model-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
-  gap: 4px;
-  padding: 5px 0 5px 8px;
-  font-size: 8px;
+  gap: 6px;
+  padding: 6px 0 6px 10px;
+  font-size: 9px;
   border-top: 1px solid rgba(51, 65, 85, 0.55);
 }
 
@@ -473,10 +574,11 @@ body {
 
 .hint {
   flex-shrink: 0;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 8px;
   color: #64748b;
   line-height: 1.35;
+  white-space: nowrap;
   cursor: pointer;
   pointer-events: auto;
 }

@@ -103,6 +103,9 @@ export interface AppState {
   lastNotify?: Record<string, string>;
   locale?: "zh" | "en";
   jokeIndex?: number;
+  /** 上次刷新时的周期 includedSpend（用于跨日 baseline） */
+  lastIncludedSpend?: number;
+  lastIncludedDate?: string;
   /** 周期额度（美分），如促销 $100 → 10000；覆盖 API 的 $400 用量池 */
 }
 

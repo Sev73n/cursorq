@@ -69,24 +69,19 @@ console.log("=== assemble", OUT_DIR, "===");
 rmrf(OUT_DIR);
 mkdirp(path.join(OUT_DIR, "data"));
 mkdirp(path.join(OUT_DIR, "logs"));
-mkdirp(path.join(OUT_DIR, "mascot/gifs"));
-
 copyFile(EXE_SRC, path.join(OUT_DIR, "CursorQ.exe"));
-copyDir(path.join(ROOT, "assets/copy"), path.join(OUT_DIR, "copy"));
-copyFile(
-  path.join(ROOT, "apps/tauri/public/mascot/default.png"),
-  path.join(OUT_DIR, "mascot/default.png")
-);
-copyDir(
-  path.join(ROOT, "apps/tauri/public/mascot/gifs"),
-  path.join(OUT_DIR, "mascot/gifs"),
-  (n) => !n.endsWith(".txt")
-);
+
+const contentSrc = path.join(ROOT, "content");
+if (!fs.existsSync(path.join(contentSrc, "copy"))) {
+  console.error("missing bundled content:", contentSrc);
+  process.exit(1);
+}
+copyDir(contentSrc, path.join(OUT_DIR, "content"), (n) => n !== "README.md");
 
 const remoteTpl = path.join(ROOT, "release/cursorq/config/remote.json.example");
 const remoteDest = path.join(OUT_DIR, "config/remote.json");
 copyFile(remoteTpl, remoteDest);
-console.log("  -> edit config/remote.json: set your GitHub raw contentBaseUrl");
+console.log("  -> offline: uses bundled content/; optional: enable config/remote.json");
 
 if (!fs.existsSync(path.join(OUT_DIR, "data/app-state.json"))) {
   fs.writeFileSync(

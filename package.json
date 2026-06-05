@@ -16,7 +16,9 @@
     "tauri": "node scripts/tauri-dev-launcher.mjs",
     "typecheck": "npm run typecheck -w @cursorq/core",
     "validate:copy": "node scripts/validate-copy.mjs",
-    "package:win": "node scripts/package-release.mjs"
+    "package:win": "node scripts/package-release.mjs",
+    "release:bump": "node scripts/release-bump.mjs",
+    "release": "npm run package:win && node scripts/release-bump.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -110,17 +110,18 @@ html.pill-only body {
   display: flex;
   align-items: center;
   height: var(--pill-h);
-  gap: 6px;
-  padding-right: 10px;
   pointer-events: none;
   border-radius: var(--radius);
 }
 
 .mascot-wrap {
-  flex: 0 0 34px;
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
   width: 34px;
   height: 34px;
-  margin-left: 6px;
   border-radius: 50%;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.55);
@@ -143,7 +144,7 @@ html.pill-only body {
 .joke-line {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.25;
   color: var(--text);
@@ -151,6 +152,9 @@ html.pill-only body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
+  /* 吉祥物已绝对定位，文字直接铺满全宽居中 */
+  padding: 0 10px;
   cursor: pointer;
   pointer-events: auto;
 }

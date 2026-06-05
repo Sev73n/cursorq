@@ -544,7 +544,16 @@ function applyCopy(copy: { line1: string; line2?: string }) {
 function rotateJokeLocal() {
   const pool = lastPayload?.jokePool;
   if (!pool?.length) return;
-  jokeIndex = (jokeIndex + 1) % pool.length;
+  // 随机选一条不同于当前的
+  if (pool.length === 1) {
+    applyCopy(pool[0]!);
+    return;
+  }
+  let next = jokeIndex;
+  while (next === jokeIndex) {
+    next = Math.floor(Math.random() * pool.length);
+  }
+  jokeIndex = next;
   applyCopy(pool[jokeIndex]!);
 }
 
@@ -555,7 +564,14 @@ function render(data: Payload) {
 
   updateHintLine();
 
-  applyCopy(data.copy ?? { line1: "连接中", line2: "…" });
+  // 面板展开时随机展示 joke，收起时展示状态文案
+  const pool = data.jokePool;
+  if (expanded && pool?.length) {
+    jokeIndex = Math.floor(Math.random() * pool.length);
+    applyCopy(pool[jokeIndex]!);
+  } else {
+    applyCopy(data.copy ?? { line1: "连接中", line2: "…" });
+  }
 
   const detail = data.detail;
   const panelTier = el("panelTier");
@@ -609,6 +625,20 @@ async function applyWindowHeight(h: number) {
 }
 
 let expandBusy = false;
+let jokeRotateTimer: ReturnType<typeof setInterval> | null = null;
+const JOKE_ROTATE_MS = 5000;
+
+function startJokeRotate() {
+  stopJokeRotate();
+  jokeRotateTimer = setInterval(() => rotateJokeLocal(), JOKE_ROTATE_MS);
+}
+
+function stopJokeRotate() {
+  if (jokeRotateTimer) {
+    clearInterval(jokeRotateTimer);
+    jokeRotateTimer = null;
+  }
+}
 
 /** 展开/收起：无动画，一次设好高度，避免卷轴动画触发 WebView 白边 */
 async function setExpanded(on: boolean) {
@@ -629,11 +659,15 @@ async function setExpanded(on: boolean) {
       reel.style.maxHeight = `${panelH}px`;
       await applyWindowHeight(fullH);
       await stabilizeWindowChrome();
+      startJokeRotate();
     } else {
       expanded = false;
       reel.classList.remove("open");
       reel.style.maxHeight = "0px";
       shell?.classList.remove("expanded");
+      stopJokeRotate();
+      // 收起时切回状态文案
+      if (lastPayload?.copy) applyCopy(lastPayload.copy);
       await applyWindowHeight(PILL_H);
       await stabilizeWindowChrome();
     }

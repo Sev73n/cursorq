@@ -133,10 +133,8 @@ const detail = await buildUsageDetail(
   fastRefresh ? { fetchEvents: false } : undefined
 );
 
-const jokePool =
-  widgetState !== "idle"
-    ? states.filter((s) => s.state === widgetState)
-    : jokes;
+// jokePool 始终是 jokes，前端根据展开状态自行决定展示 jokes 还是 copy
+const jokePool = jokes;
 
 console.log(
   JSON.stringify({

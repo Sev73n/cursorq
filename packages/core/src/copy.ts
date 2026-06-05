@@ -30,10 +30,15 @@ export interface StateEntry {
 }
 
 export function pickWidgetState(p: ProgressPaint): WidgetState {
-  if (p.bluePct > 0.5) return "surplus_vibe";
-  if (p.phase === "red") return "done_today";
+  // 今日超额时，颜色（phase）优先于余量判断
+  if (p.phase === "red") {
+    // 周期余量充足 → done_today_ok（红但不用恐慌）
+    if (p.bluePct > 0.5) return "done_today_ok";
+    return "done_today";
+  }
   if (p.warnYellowPct > 0.05) return "warn80";
   if (p.cycleRemainingCents < p.cycleLimitCents * 0.15) return "over_cycle";
+  if (p.bluePct > 0.5) return "surplus_vibe";
   return "idle";
 }
 

@@ -134,6 +134,7 @@ export type WidgetState =
   | "surplus_vibe"
   | "warn80"
   | "done_today"
+  | "done_today_ok"   // 今日超额但周期余量充足（胶囊红，但不必恐慌）
   | "over_cycle";
 
 export type Locale = "zh" | "en";

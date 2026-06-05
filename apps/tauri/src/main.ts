@@ -414,38 +414,39 @@ function renderCategories(
   });
 }
 
-/** 打字机效果：逐字显示新文案，新内容到来时取消旧动画 */
+/** 打字机效果：line1 → 思考...×3 → line2 → 循环 */
+let _twTimer: ReturnType<typeof setTimeout> | null = null;
 let _twRaf: number | null = null;
-let _twTarget: string = "";
+let _twSessionId = 0; // 每次新内容递增，用于取消旧动画
 
-function typewriterSet(el: HTMLElement, text: string) {
-  // 相同内容不重播
-  if (_twTarget === text && el.textContent === text) return;
-  _twTarget = text;
-  if (_twRaf !== null) {
-    cancelAnimationFrame(_twRaf);
-    _twRaf = null;
-  }
-  el.classList.remove("typing");
-  el.textContent = "";
-  if (!text) return;
+function _twCancel() {
+  _twSessionId++;
+  if (_twRaf !== null) { cancelAnimationFrame(_twRaf); _twRaf = null; }
+  if (_twTimer !== null) { clearTimeout(_twTimer); _twTimer = null; }
+}
 
+/** 逐字打出 text，完成后调 onDone */
+function _typeText(
+  el: HTMLElement,
+  text: string,
+  sid: number,
+  onDone: () => void
+) {
+  const charMs = text.length > 8 ? 42 : 60;
   let i = 0;
-  // 根据文字长度自动调节速度：长文快一点，短文慢一点
-  const charMs = text.length > 8 ? 45 : 65;
-  let lastTime = 0;
+  let last = 0;
+  el.classList.add("typing");
 
   function step(ts: number) {
-    if (_twTarget !== text) return; // 被新内容抢占
-    if (ts - lastTime >= charMs) {
-      lastTime = ts;
+    if (_twSessionId !== sid) return;
+    if (ts - last >= charMs) {
+      last = ts;
       i++;
       el.textContent = text.slice(0, i);
-      if (i < text.length) {
-        el.classList.add("typing");
-      } else {
+      if (i >= text.length) {
         el.classList.remove("typing");
         _twRaf = null;
+        onDone();
         return;
       }
     }
@@ -454,9 +455,89 @@ function typewriterSet(el: HTMLElement, text: string) {
   _twRaf = requestAnimationFrame(step);
 }
 
+/** 显示思考动画：... 循环 repeat 次后调 onDone */
+function _thinkDots(
+  el: HTMLElement,
+  base: string,
+  sid: number,
+  repeat: number,
+  onDone: () => void
+) {
+  if (_twSessionId !== sid) return;
+  let count = 0;
+  let dots = 0;
+  const TICK = 300; // 每个点间隔 ms
+
+  function tick() {
+    if (_twSessionId !== sid) return;
+    dots = (dots % 3) + 1;
+    el.textContent = base + ".".repeat(dots);
+    count++;
+    if (count >= repeat * 3) {
+      el.textContent = base;
+      onDone();
+    } else {
+      _twTimer = setTimeout(tick, TICK);
+    }
+  }
+  _twTimer = setTimeout(tick, TICK);
+}
+
+/** 主入口：新文案到来时调用 */
+function typewriterSet(target: HTMLElement, copy: { line1: string; line2?: string }) {
+  const line1 = (copy.line1 ?? "").trim();
+  const line2 = (copy.line2 ?? "").trim();
+  const hasLine2 = line2 && line2 !== "…";
+
+  // 如果只有一行，直接打出来不循环
+  if (!hasLine2) {
+    const prev = target.dataset.twLine1;
+    if (prev === line1 && target.textContent === line1) return;
+    target.dataset.twLine1 = line1;
+    target.dataset.twLine2 = "";
+    _twCancel();
+    const sid = _twSessionId;
+    target.textContent = "";
+    _typeText(target, line1, sid, () => {});
+    return;
+  }
+
+  // 两行内容：检查是否与上一次相同，相同则不重置
+  if (target.dataset.twLine1 === line1 && target.dataset.twLine2 === line2) return;
+  target.dataset.twLine1 = line1;
+  target.dataset.twLine2 = line2;
+
+  _twCancel();
+  const sid = _twSessionId;
+
+  function runLine1() {
+    if (_twSessionId !== sid) return;
+    target.textContent = "";
+    _typeText(target, line1, sid, () => {
+      // 打完 line1，等 2 秒
+      if (_twSessionId !== sid) return;
+      _twTimer = setTimeout(() => {
+        // 思考动画：... 循环 3 次
+        _thinkDots(target, line1, sid, 3, () => {
+          // 清空，打 line2
+          if (_twSessionId !== sid) return;
+          target.textContent = "";
+          _typeText(target, line2, sid, () => {
+            // line2 打完，等 3 秒后回到 line1
+            if (_twSessionId !== sid) return;
+            _twTimer = setTimeout(runLine1, 3000);
+          });
+        });
+      }, 2000);
+    });
+  }
+
+  runLine1();
+}
+
 function applyCopy(copy: { line1: string; line2?: string }) {
   const line = el("jokeLine");
-  if (line) typewriterSet(line, jokeOneLine(copy));
+  if (line) typewriterSet(line, copy);
   queueStabilizeWindowChrome();
 }
 

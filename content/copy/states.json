@@ -8,6 +8,9 @@
   { "line1": "今日够了", "line2": "溜了溜了", "state": "done_today" },
   { "line1": "日额用完了", "line2": "摸鱼去吧", "state": "done_today" },
   { "line1": "今日任务达成", "line2": "Cursor叫你休息", "state": "done_today" },
+  { "line1": "今日超额", "line2": "明天继续", "state": "done_today_ok" },
+  { "line1": "今天猛了点", "line2": "余粮还够", "state": "done_today_ok" },
+  { "line1": "日额超了", "line2": "周期还宽", "state": "done_today_ok" },
   { "line1": "本月已超车", "line2": "后面扣咋整", "state": "over_cycle" },
   { "line1": "周期偏紧", "line2": "省着点用", "state": "over_cycle" }
 ]

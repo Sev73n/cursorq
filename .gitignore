@@ -29,6 +29,8 @@ Thumbs.db
 !.vscode/extensions.json
 *.swp
 *.swo
+.qoder
+.codegraph
 
 # Release artifacts（本地打包产物，不进仓库）
 release/*.zip

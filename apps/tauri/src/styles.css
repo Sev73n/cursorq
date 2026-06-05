@@ -2,7 +2,7 @@
   --w: 200px;
   --panel-w: 188px;
   --pill-h: 44px;
-  --radius: 22px;
+  --radius: 9999px;  /* 完美胶囊形：超大值自动形成半圆形端点 */
   --panel-radius: 16px;
   --reel-gap: 10px;
   --bg: #0f172a;
@@ -42,11 +42,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* WebView2 矩形视口在圆角处会露白，收起态用 clip 与 Win HRGN 双保险 */
+/* WebView2 矩形视口在圆角处会露白，收起态由 Rust SetWindowRgn 处理，不用 CSS clip */
 html.pill-only,
 html.pill-only body {
-  clip-path: inset(0 round var(--radius));
-  -webkit-clip-path: inset(0 round var(--radius));
+  /* clip-path 由 Win32 SetWindowRgn 代替，避免双层裁切 */
 }
 
 .shell {
@@ -90,6 +89,8 @@ html.pill-only body {
   backface-visibility: hidden;
   cursor: move;
   touch-action: none;
+  /* Win32 SetWindowRgn 提供 OS 级圆角抗锯齿，不用 CSS clip-path */
+  /* clip-path 已移除，避免与 Win32 region 冲突 */
 }
 
 .pill-bar {

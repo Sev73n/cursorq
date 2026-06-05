@@ -15,10 +15,11 @@ export function formatTodayMetricValue(
   const pct = Math.round((todayUsedCents / daily) * 100);
   const over = isTodayOverDaily(todayUsedCents, dailyBudgetCents);
   const prefix = over ? t(locale, "todayOver") : "";
-  return `${prefix}${pct}% · ${formatUsd(todayUsedCents)} / ${formatUsd(dailyBudgetCents)}`;
+  // 用 en-dash 替代 / 减少字符宽度，保持单行
+  return `${prefix}${pct}% · ${formatUsd(todayUsedCents)}–${formatUsd(dailyBudgetCents)}`;
 }
 
-/** 总量：Cursor 综合配额 %；快于周期时间进度时标「超前」 */
+/** 总量：Cursor 综合配额 %；快于周期时间进度时标「超前」（tier 已在面板标题展示，此处不重复） */
 export function formatTotalMetricValue(
   locale: Locale,
   tier: string,
@@ -28,5 +29,5 @@ export function formatTotalMetricValue(
 ): string {
   const over = isCycleOverPace(cycleUsedPct, cycleStartMs, cycleEndMs);
   const prefix = over ? t(locale, "paceOver") : t(locale, "paceOk");
-  return `${prefix}${tier} · ${cycleUsedPct}%`;
+  return `${prefix}${cycleUsedPct}%`;
 }

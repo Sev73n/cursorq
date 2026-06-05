@@ -154,6 +154,20 @@ html.pill-only body {
   pointer-events: auto;
 }
 
+/* 打字机游标：打字中闪烁，完成后消失 */
+.joke-line.typing::after {
+  content: "|";
+  display: inline-block;
+  margin-left: 1px;
+  opacity: 1;
+  animation: tw-blink 0.6s step-end infinite;
+}
+
+@keyframes tw-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
 /* 卷轴：与胶囊分离、略窄，从下方滑出 */
 .panel-reel {
   width: var(--panel-w);
@@ -261,7 +275,7 @@ html.pill-only body {
   font-size: 10px;
   text-align: right;
   line-height: 1.3;
-  word-break: break-word;
+  white-space: nowrap;
 }
 
 .metric-track {

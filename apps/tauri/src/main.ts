@@ -414,9 +414,49 @@ function renderCategories(
   });
 }
 
+/** 打字机效果：逐字显示新文案，新内容到来时取消旧动画 */
+let _twRaf: number | null = null;
+let _twTarget: string = "";
+
+function typewriterSet(el: HTMLElement, text: string) {
+  // 相同内容不重播
+  if (_twTarget === text && el.textContent === text) return;
+  _twTarget = text;
+  if (_twRaf !== null) {
+    cancelAnimationFrame(_twRaf);
+    _twRaf = null;
+  }
+  el.classList.remove("typing");
+  el.textContent = "";
+  if (!text) return;
+
+  let i = 0;
+  // 根据文字长度自动调节速度：长文快一点，短文慢一点
+  const charMs = text.length > 8 ? 45 : 65;
+  let lastTime = 0;
+
+  function step(ts: number) {
+    if (_twTarget !== text) return; // 被新内容抢占
+    if (ts - lastTime >= charMs) {
+      lastTime = ts;
+      i++;
+      el.textContent = text.slice(0, i);
+      if (i < text.length) {
+        el.classList.add("typing");
+      } else {
+        el.classList.remove("typing");
+        _twRaf = null;
+        return;
+      }
+    }
+    _twRaf = requestAnimationFrame(step);
+  }
+  _twRaf = requestAnimationFrame(step);
+}
+
 function applyCopy(copy: { line1: string; line2?: string }) {
   const line = el("jokeLine");
-  if (line) line.textContent = jokeOneLine(copy);
+  if (line) typewriterSet(line, jokeOneLine(copy));
   queueStabilizeWindowChrome();
 }
 

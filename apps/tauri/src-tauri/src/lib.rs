@@ -41,7 +41,6 @@ fn list_mascot_gifs() -> Result<Vec<String>, String> {
         .filter(|n| {
             !n.starts_with('.')
                 && is_mascot_media(n)
-                && !n.eq_ignore_ascii_case(paths::MASCOT_PLACEHOLDER_ANIM)
         })
         .collect();
     names.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));

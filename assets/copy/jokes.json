@@ -41,5 +41,22 @@
   { "line1": "◕‿◕", "line2": "开工", "tag": "kao" },
   { "line1": "⊙﹏⊙", "line2": "额度危", "tag": "kao" },
   { "line1": "yarn ok", "line2": "心情ok", "tag": "meme" },
-  { "line1": "pnpm快", "line2": "心也快", "tag": "meme" }
+  { "line1": "pnpm快", "line2": "心也快", "tag": "meme" },
+  { "line1": "家人们谁懂", "line2": "Cursor又没额度", "tag": "xhs" },
+  { "line1": "救命这bug", "line2": "绝绝子 修三天", "tag": "xhs" },
+  { "line1": "真的会谢", "line2": "产品又改需求", "tag": "xhs" },
+  { "line1": "破防了", "line2": "push --force了", "tag": "xhs" },
+  { "line1": "yyds! 代码", "line2": "一次跑通", "tag": "xhs" },
+  { "line1": "尊嘟假嘟", "line2": "测试全过了", "tag": "xhs" },
+  { "line1": "真的栓Q", "line2": "周五发版", "tag": "xhs" },
+  { "line1": "不是吧", "line2": "bug是我的", "tag": "xhs" },
+  { "line1": "狠狠拿捏", "line2": "npm报红", "tag": "xhs" },
+  { "line1": "谢邀 人在工位", "line2": "刚写完一个bug", "tag": "zhihu" },
+  { "line1": "如何看待周一上线", "line2": "圈内人不这么干", "tag": "zhihu" },
+  { "line1": "先问是不是", "line2": "再问为什么", "tag": "zhihu" },
+  { "line1": "利益相关", "line2": "前背锅侠", "tag": "zhihu" },
+  { "line1": "以上", "line2": "不接受反驳", "tag": "zhihu" },
+  { "line1": "泻药 刚被裁", "line2": "有时间了", "tag": "zhihu" },
+  { "line1": "实名反对", "line2": "是我写的", "tag": "zhihu" },
+  { "line1": "作为十年码农", "line2": "建议转行", "tag": "zhihu" }
 ]

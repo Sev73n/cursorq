@@ -16,6 +16,8 @@ cursorq/
     remote.json        # 可选在线更新（默认关闭）
   logs/
     cursorq.log
+  tools/
+    sqlite3.exe        # 内置 SQLite 工具（支持大体积数据库）
   scripts/
     refresh-usage.mjs
   node_modules/

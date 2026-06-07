@@ -69,7 +69,17 @@ console.log("=== assemble", OUT_DIR, "===");
 rmrf(OUT_DIR);
 mkdirp(path.join(OUT_DIR, "data"));
 mkdirp(path.join(OUT_DIR, "logs"));
+mkdirp(path.join(OUT_DIR, "tools"));
 copyFile(EXE_SRC, path.join(OUT_DIR, "CursorQ.exe"));
+
+// 打包 sqlite3.exe（用于读取大体积 Cursor 数据库）
+const sqlite3Src = "C:\\platform-tools\\sqlite3.exe";
+if (fs.existsSync(sqlite3Src)) {
+  copyFile(sqlite3Src, path.join(OUT_DIR, "tools/sqlite3.exe"));
+  console.log("  -> bundled sqlite3.exe for large DB support");
+} else {
+  console.log("  -> WARNING: sqlite3.exe not found, large DB may fail");
+}
 
 const contentSrc = path.join(ROOT, "content");
 if (!fs.existsSync(path.join(contentSrc, "copy"))) {

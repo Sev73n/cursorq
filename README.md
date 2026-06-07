@@ -118,9 +118,50 @@ npm run package:win
 
 推送到 GitHub 前见 [docs/GITHUB_PREP.md](docs/GITHUB_PREP.md)。
 
+## 数据获取说明
+
+### 数据库查询
+
+本程序通过读取 Cursor 桌面版的本地数据库获取登录凭据：
+
+1. **数据库位置**：`%APPDATA%\Cursor\User\globalStorage\state.vscdb`（SQLite 格式）
+2. **查询方式**：
+    - 优先使用 `sqlite3` CLI 工具（支持大文件）
+    - 降级方案使用 `sql.js`（WebAssembly SQLite）
+3. **查询内容**：从 `ItemTable` 表读取以下字段：
+    - `cursorAuth/accessToken` - 访问令牌
+    - `cursorAuth/refreshToken` - 刷新令牌
+    - `cursorAuth/cachedEmail` - 缓存的邮箱地址
+4. **安全说明**：仅读取，**不修改**任何数据库内容；所有数据仅保存在本机内存中，不向第三方传输。
+
+### 联网请求
+
+程序需要联网获取订阅用量信息，所有请求均发送至 Cursor 官方服务器：
+
+| 请求地址 | 用途 |
+|----------|------|
+| `https://api2.cursor.sh/oauth/token` | 刷新访问令牌 |
+| `https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` | 获取当前周期用量（主接口） |
+| `https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo` | 获取订阅计划信息 |
+| `https://cursor.com/api/usage-summary` | 备用接口（REST 方式） |
+| `https://cursor.com/api/dashboard/get-current-period-usage` | Dashboard 数据补充 |
+
+**联网获取的内容**：
+- 订阅档位名称（如 Ultra、Pro、Free）
+- 周期额度限制
+- 已用量与剩余量
+- 计费周期起止时间
+- 每日预算计算
+- 分模型用量明细（API / Auto 分组）
+
+**隐私说明**：
+- 仅获取用量相关数据，不读取或传输代码、文件内容
+- 所有数据仅保存在本机（`apps/tauri/.data/`），日志见 `.data/logs/cursorq.log`
+- 不向任何第三方服务器发送数据
+
 ## 说明与限制
 
-- 使用 Cursor **非公开** Dashboard 接口，可能随 Cursor 版本变化而失效；用量与状态仅保存在本机（`apps/tauri/.data/`，日志见 `.data/logs/cursorq.log`）。
+- 使用 Cursor **非公开** Dashboard 接口，可能随 Cursor 版本变化而失效；用量与状态仅保存在本机。
 - 不修改、不拦截 Cursor 网络请求；未登录 Cursor 时胶囊会提示「请先登录 Cursor」。
 - 主程序为 **Tauri 2** 无边框透明圆角窗；Windows 下通过 DWM 处理窗口形状，避免白边。
 

@@ -9,23 +9,12 @@ import {
   initMascotGifs,
   reloadMascotGifsAfterContentUpdate,
 } from "./mascot-gifs.js";
-import {
-  daysUrgencyPct,
-  daysUrgencyTone,
-  progressFromDebug,
-  slidersFromMetrics,
-  slidersFromScenario,
-  type DebugScenarioId,
-  type DebugSliders,
-} from "./debug-mode.js";
+import { daysUrgencyPct, daysUrgencyTone } from "./debug-mode.js";
 import type { ProgressPaint } from "@cursorq/core";
 import {
-  clearDebugToolbar,
   formatTodayMetricValue,
   formatTotalMetricValue,
-  renderDebugMetrics,
-  renderDebugToolbar,
-} from "./debug-ui.js";
+} from "./debug-ui-format.js";
 import {
   bindWindowChromeState,
   installWindowChromeGuard,
@@ -149,13 +138,6 @@ function renderBucketModels(models: UsageCategory["models"]): string {
 }
 
 let lastPayload: Payload | null = null;
-let debugMode = false;
-let debugSliders: DebugSliders = {
-  cycleUsedPct: 7,
-  todayRatioPct: 100,
-  daysUrgencyPct: 10,
-  surplusBankCents: 0,
-};
 
 const el = (id: string) => document.getElementById(id);
 
@@ -210,7 +192,6 @@ function updateHintLine() {
   const hint = el("hint");
   if (!hint) return;
   hint.textContent = t(locale, "dataSource");
-  hint.classList.toggle("hint-debug", debugMode);
 }
 
 function renderMetrics(m: NonNullable<Payload["detail"]>["metrics"]) {
@@ -228,33 +209,19 @@ function renderMetrics(m: NonNullable<Payload["detail"]>["metrics"]) {
   );
   const daysLabel = `${m.daysLeft}${locale === "zh" ? "天" : "d"}`;
 
-  const toolbar = el("debugToolbar");
-
-  if (debugMode) {
-    renderDebugMetrics(
-      box,
-      locale,
-      debugSliders,
-      tier,
-      tierTone,
-      paintBar
-    );
-    if (toolbar) {
-      renderDebugToolbar(toolbar, locale, applyDebugPreset, () => {
-        if (debugMode) toggleDebugMode();
-      });
-    }
-    return;
-  }
-
-  clearDebugToolbar(toolbar);
-
   const cycleStart = lastPayload?.detail?.cycleStartMs ?? 0;
   const cycleEnd = lastPayload?.detail?.cycleEndMs ?? 0;
   const totalLabel =
     cycleStart > 0 && cycleEnd > cycleStart
       ? formatTotalMetricValue(locale, tier, cyclePct, cycleStart, cycleEnd)
       : `${tier} · ${cyclePct}%`;
+
+  // 计算日均应为百分比
+  const expectedPct = cycleStart > 0 && cycleEnd > cycleStart
+    ? Math.round(((cycleEnd - Date.now()) / (cycleEnd - cycleStart)) * 100)
+    : Math.round((m.daysLeft / Math.max(1, m.cycleTotalDays ?? 30)) * 100);
+
+  const daysUrgencyClass = daysUrgencyTone(urgency).replace("days-", "");
 
   box.innerHTML = [
     metricRow(t(locale, "total"), totalLabel, cyclePct, tierTone),
@@ -268,52 +235,17 @@ function renderMetrics(m: NonNullable<Payload["detail"]>["metrics"]) {
       m.todayUsedPct,
       "green"
     ),
-    metricRow(
-      t(locale, "daysLeft"),
-      daysLabel,
-      urgency,
-      daysUrgencyTone(urgency)
-    ),
+    `<div class="mini-cards">
+      <div class="mini-card">
+        <span class="mini-card-label">${t(locale, "expectedPct")}</span>
+        <span class="mini-card-value">${expectedPct}%</span>
+      </div>
+      <div class="mini-card">
+        <span class="mini-card-label">${t(locale, "daysLeft")}</span>
+        <span class="mini-card-value mini-card-value--${daysUrgencyClass}">${daysLabel}</span>
+      </div>
+    </div>`,
   ].join("");
-}
-
-function applyDebugPreset(id: DebugScenarioId) {
-  debugSliders = slidersFromScenario(id);
-  if (lastPayload?.detail?.metrics) {
-    renderMetrics(lastPayload.detail.metrics);
-  } else {
-    paintBar(progressFromDebug(debugSliders));
-  }
-  void remeasureExpandedPanel();
-}
-
-async function remeasureExpandedPanel() {
-  if (!expanded) return;
-  const reel = el("panelReel");
-  if (!reel?.classList.contains("open")) return;
-  const panelH = await measurePanelHeight();
-  reel.style.maxHeight = `${panelH}px`;
-  void applyWindowHeight(PILL_H + panelH + REEL_GAP);
-}
-
-function toggleDebugMode() {
-  debugMode = !debugMode;
-  if (debugMode && lastPayload?.detail?.metrics) {
-    debugSliders = slidersFromMetrics(lastPayload.detail.metrics);
-  }
-  updateHintLine();
-  if (lastPayload?.detail?.metrics) {
-    renderMetrics(lastPayload.detail.metrics);
-  } else {
-    clearDebugToolbar(el("debugToolbar"));
-  }
-  if (debugMode) {
-    paintBar(progressFromDebug(debugSliders));
-  } else if (lastPayload?.progress) {
-    paintBar(lastPayload.progress);
-  }
-  void remeasureExpandedPanel();
-  queueStabilizeWindowChrome();
 }
 
 function renderCategories(
@@ -589,11 +521,7 @@ function render(data: Payload) {
   renderMetrics(detail?.metrics);
   renderCategories(detail?.categories);
 
-  if (debugMode) {
-    paintBar(progressFromDebug(debugSliders));
-  } else {
-    paintBar(data.progress);
-  }
+  paintBar(data.progress);
   queueStabilizeWindowChrome();
 }
 
@@ -800,29 +728,6 @@ function bindInteractions() {
     ev.preventDefault();
     if (shouldIgnoreTap()) return;
     void setExpanded(!expanded);
-  });
-
-  const hint = el("hint");
-  let hintClicks = 0;
-  let hintClickTimer: ReturnType<typeof setTimeout> | null = null;
-  hint?.addEventListener("click", (ev) => {
-    ev.stopPropagation();
-    if (debugMode) {
-      toggleDebugMode();
-      return;
-    }
-    hintClicks += 1;
-    if (hintClickTimer) clearTimeout(hintClickTimer);
-    hintClickTimer = setTimeout(() => {
-      hintClicks = 0;
-      hintClickTimer = null;
-    }, 500);
-    if (hintClicks >= 3) {
-      hintClicks = 0;
-      if (hintClickTimer) clearTimeout(hintClickTimer);
-      hintClickTimer = null;
-      toggleDebugMode();
-    }
   });
 }
 

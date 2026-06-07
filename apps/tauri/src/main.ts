@@ -9,12 +9,12 @@ import {
   initMascotGifs,
   reloadMascotGifsAfterContentUpdate,
 } from "./mascot-gifs.js";
-import { daysUrgencyPct, daysUrgencyTone } from "./debug-mode.js";
+import { daysUrgencyPct, daysUrgencyTone } from "./utils.js";
 import type { ProgressPaint } from "@cursorq/core";
 import {
   formatTodayMetricValue,
   formatTotalMetricValue,
-} from "./debug-ui-format.js";
+} from "./format.js";
 import {
   bindWindowChromeState,
   installWindowChromeGuard,

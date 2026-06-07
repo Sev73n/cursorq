@@ -58,7 +58,7 @@ jobs:
           where cl.exe
 
       - name: Build Tauri app
-        run: npx tauri build
+        run: cd apps/tauri && npx tauri build
         env:
           RUST_BACKTRACE: full
           CARGO_TERM_COLOR: never
@@ -75,6 +75,12 @@ jobs:
           }
           Write-Host "=== Release exe ==="
           Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          Write-Host "=== dist directory ==="
+          if (Test-Path "apps\tauri\dist") {
+            Get-ChildItem "apps\tauri\dist" | Select-Object FullName, Length
+          } else {
+            Write-Host "dist directory not found"
+          }
 
       - name: Get version
         id: get_version

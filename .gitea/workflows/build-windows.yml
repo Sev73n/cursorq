@@ -8,8 +8,8 @@ on:
 
 jobs:
   build-windows:
-    # 使用 self-hosted runner，避免标签不匹配问题
-    runs-on: self-hosted
+    # 使用 Docker 容器运行（oc-docker-runner 支持）
+    runs-on: docker
 
     steps:
       - name: Checkout code
@@ -42,15 +42,11 @@ jobs:
         run: npm run build:core
 
       - name: Show environment info
-        shell: pwsh
         run: |
           node --version
           npm --version
           rustc --version
           cargo --version
-          echo "---"
-          where link.exe
-          where cl.exe
 
       - name: Build Tauri app
         run: cd apps/tauri && npx tauri build
@@ -60,26 +56,16 @@ jobs:
 
       - name: List build outputs
         if: always()
-        shell: pwsh
         run: |
-          Write-Host "=== Bundle directory ==="
-          if (Test-Path "apps\tauri\src-tauri\target\release\bundle") {
-            Get-ChildItem "apps\tauri\src-tauri\target\release\bundle" -Recurse | Select-Object FullName, Length
-          } else {
-            Write-Host "Bundle directory not found"
-          }
-          Write-Host "=== Release exe ==="
-          Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object FullName, Length
-          Write-Host "=== dist directory ==="
-          if (Test-Path "apps\tauri\dist") {
-            Get-ChildItem "apps\tauri\dist" | Select-Object Name, Length
-          } else {
-            Write-Host "dist directory not found"
-          }
+          echo "=== Bundle directory ==="
+          ls -la apps/tauri/src-tauri/target/release/bundle/ 2>/dev/null || echo "Bundle directory not found"
+          echo "=== Release exe ==="
+          ls -la apps/tauri/src-tauri/target/release/*.exe 2>/dev/null || echo "No exe found"
+          echo "=== dist directory ==="
+          ls -la apps/tauri/dist 2>/dev/null || echo "dist directory not found"
 
       - name: Get version
         id: get_version
-        shell: bash
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION=${GITHUB_REF#refs/tags/v}
@@ -91,50 +77,50 @@ jobs:
 
       - name: Prepare release package
         if: success()
-        shell: pwsh
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
-          $releaseDir = "release"
-          $packageName = "cursorq-$version-win64"
+          version="${{ steps.get_version.outputs.VERSION }}"
+          releaseDir="release"
+          packageName="cursorq-${version}-win64"
 
-          New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+          mkdir -p "$releaseDir"
 
           # Copy Tauri build output
-          $bundlePath = "apps\tauri\src-tauri\target\release\bundle"
-          if (Test-Path "$bundlePath\msi") {
-            Copy-Item "$bundlePath\msi\*" $releaseDir -Force
-          }
-          if (Test-Path "$bundlePath\nsis") {
-            Copy-Item "$bundlePath\nsis\*" $releaseDir -Force
-          }
+          bundlePath="apps/tauri/src-tauri/target/release/bundle"
+          if [ -d "$bundlePath/msi" ]; then
+            cp "$bundlePath/msi/"* "$releaseDir/"
+          fi
+          if [ -d "$bundlePath/nsis" ]; then
+            cp "$bundlePath/nsis/"* "$releaseDir/"
+          fi
 
           # Find exe
-          $exePath = "apps\tauri\src-tauri\target\release\CursorQ.exe"
-          if (-not (Test-Path $exePath)) {
-            $exePath = Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          }
+          exePath="apps/tauri/src-tauri/target/release/CursorQ.exe"
+          if [ ! -f "$exePath" ]; then
+            exePath=$(ls apps/tauri/src-tauri/target/release/*.exe 2>/dev/null | head -1)
+          fi
 
-          if (Test-Path $exePath) {
+          if [ -f "$exePath" ]; then
             # Create package directory
-            $packageDir = Join-Path $releaseDir $packageName
-            New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
-            Copy-Item $exePath $packageDir -Force
-            Copy-Item "apps\tauri\dist" $packageDir -Recurse -Force
-            Copy-Item "content" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item "data" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item "config" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item "release\README.md" $packageDir -Force -ErrorAction SilentlyContinue
-            Copy-Item "LICENSE" $packageDir -Force -ErrorAction SilentlyContinue
+            packageDir="${releaseDir}/${packageName}"
+            mkdir -p "$packageDir"
+            cp "$exePath" "$packageDir/"
+            cp -r apps/tauri/dist "$packageDir/"
+            cp -r content "$packageDir/" 2>/dev/null || true
+            cp -r data "$packageDir/" 2>/dev/null || true
+            cp -r config "$packageDir/" 2>/dev/null || true
+            cp release/README.md "$packageDir/" 2>/dev/null || true
+            cp LICENSE "$packageDir/" 2>/dev/null || true
 
             # Create zip
-            $zipPath = Join-Path $releaseDir "$packageName.zip"
-            Compress-Archive -Path $packageDir -DestinationPath $zipPath -Force
-            Write-Host "Created: $zipPath"
-            Get-ChildItem $releaseDir | Select-Object Name, Length
-          } else {
-            Write-Error "Executable not found"
+            cd "$releaseDir"
+            zip -r "${packageName}.zip" "$packageName"
+            cd ..
+            echo "Created: ${releaseDir}/${packageName}.zip"
+            ls -la "$releaseDir/"
+          else
+            echo "Executable not found"
             exit 1
-          }
+          fi
 
       - name: Upload build artifacts
         if: success()

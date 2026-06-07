@@ -1,0 +1,145 @@
+name: Build CursorQ Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/tauri/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build core
+        run: npm run build:core
+
+      - name: Build Tauri app
+        run: npx tauri build
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="0.1.1"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Prepare release package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $releaseDir = "release"
+          $packageName = "cursorq-$version-win64"
+          
+          New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+          
+          # Copy Tauri build output
+          $bundlePath = "apps\tauri\src-tauri\target\release\bundle"
+          if (Test-Path "$bundlePath\msi") {
+            Copy-Item "$bundlePath\msi\*" $releaseDir -Force
+          }
+          if (Test-Path "$bundlePath\nsis") {
+            Copy-Item "$bundlePath\nsis\*" $releaseDir -Force
+          }
+          
+          # Find exe
+          $exePath = "apps\tauri\src-tauri\target\release\CursorQ.exe"
+          if (-not (Test-Path $exePath)) {
+            $exePath = Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" | Select-Object -First 1 -ExpandProperty FullName
+          }
+          
+          if (Test-Path $exePath) {
+            # Create package directory
+            $packageDir = Join-Path $releaseDir $packageName
+            New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+            Copy-Item $exePath $packageDir -Force
+            Copy-Item "apps\tauri\dist" $packageDir -Recurse -Force
+            Copy-Item "content" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
+            Copy-Item "data" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
+            Copy-Item "config" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
+            Copy-Item "release\README.md" $packageDir -Force -ErrorAction SilentlyContinue
+            Copy-Item "LICENSE" $packageDir -Force -ErrorAction SilentlyContinue
+            
+            # Create zip
+            $zipPath = Join-Path $releaseDir "$packageName.zip"
+            Compress-Archive -Path $packageDir -DestinationPath $zipPath -Force
+            Write-Host "Created: $zipPath"
+          } else {
+            Write-Error "Executable not found"
+            exit 1
+          }
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cursorq-windows-${{ steps.get_version.outputs.VERSION }}
+          path: release/*.zip
+          if-no-files-found: error
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.zip
+            release/*.msi
+            release/*.exe
+          body: |
+            # CursorQ ${{ steps.get_version.outputs.VERSION }}
+
+            ## 下载
+
+            - **cursorq-${{ steps.get_version.outputs.VERSION }}-win64.zip** - 便携版（推荐）
+            - **CursorQ_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi** - MSI 安装包
+
+            ## 使用说明
+
+            1. 下载并解压 zip 文件到任意目录
+            2. 双击 `CursorQ.exe` 启动
+            3. 首次启动会自动读取 Cursor 用量信息
+
+            ## 系统要求
+
+            - Windows 10/11 (64-bit)
+            - Node.js 20+
+            - 已安装并登录 Cursor 桌面版
+
+            ## 更新日志
+
+            - 新增大型数据库支持
+            - 新增卡片式 UI 布局
+            - 修复安全漏洞
+            - 优化构建流程
+          draft: false
+          prerelease: false
+          generate_release_notes: true

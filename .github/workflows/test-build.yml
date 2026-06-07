@@ -1,0 +1,79 @@
+name: Test Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust (Unix)
+        if: matrix.os != 'windows-latest'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/tauri/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            build-essential
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run build:core
+
+      - name: Build frontend
+        run: npm run vite:build -w apps/tauri
+
+      - name: Verify build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd apps/tauri/src-tauri
+          cargo check --release
+
+      - name: Verify build (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd apps/tauri/src-tauri
+          cargo check --release

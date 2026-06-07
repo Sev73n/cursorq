@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CursorQ",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.cursorq.app",
   "build": {
     "beforeDevCommand": "npm run vite:dev",
@@ -32,7 +32,9 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },

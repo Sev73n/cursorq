@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout code
@@ -46,8 +46,35 @@ jobs:
       - name: Build core
         run: npm run build:core
 
+      - name: Show environment info
+        shell: pwsh
+        run: |
+          node --version
+          npm --version
+          rustc --version
+          cargo --version
+          echo "---"
+          where link.exe
+          where cl.exe
+
       - name: Build Tauri app
         run: npx tauri build
+        env:
+          RUST_BACKTRACE: full
+          CARGO_TERM_COLOR: never
+
+      - name: List build outputs
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== Bundle directory ==="
+          if (Test-Path "apps\tauri\src-tauri\target\release\bundle") {
+            Get-ChildItem "apps\tauri\src-tauri\target\release\bundle" -Recurse | Select-Object FullName, Length
+          } else {
+            Write-Host "Bundle directory not found"
+          }
+          Write-Host "=== Release exe ==="
+          Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object FullName, Length
 
       - name: Get version
         id: get_version
@@ -61,14 +88,15 @@ jobs:
           echo "Building version: $VERSION"
 
       - name: Prepare release package
+        if: success()
         shell: pwsh
         run: |
           $version = "${{ steps.get_version.outputs.VERSION }}"
           $releaseDir = "release"
           $packageName = "cursorq-$version-win64"
-          
+
           New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-          
+
           # Copy Tauri build output
           $bundlePath = "apps\tauri\src-tauri\target\release\bundle"
           if (Test-Path "$bundlePath\msi") {
@@ -77,13 +105,13 @@ jobs:
           if (Test-Path "$bundlePath\nsis") {
             Copy-Item "$bundlePath\nsis\*" $releaseDir -Force
           }
-          
+
           # Find exe
           $exePath = "apps\tauri\src-tauri\target\release\CursorQ.exe"
           if (-not (Test-Path $exePath)) {
-            $exePath = Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" | Select-Object -First 1 -ExpandProperty FullName
+            $exePath = Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
           }
-          
+
           if (Test-Path $exePath) {
             # Create package directory
             $packageDir = Join-Path $releaseDir $packageName
@@ -95,17 +123,19 @@ jobs:
             Copy-Item "config" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
             Copy-Item "release\README.md" $packageDir -Force -ErrorAction SilentlyContinue
             Copy-Item "LICENSE" $packageDir -Force -ErrorAction SilentlyContinue
-            
+
             # Create zip
             $zipPath = Join-Path $releaseDir "$packageName.zip"
             Compress-Archive -Path $packageDir -DestinationPath $zipPath -Force
             Write-Host "Created: $zipPath"
+            Get-ChildItem $releaseDir | Select-Object Name, Length
           } else {
             Write-Error "Executable not found"
             exit 1
           }
 
       - name: Upload build artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: cursorq-windows-${{ steps.get_version.outputs.VERSION }}
@@ -113,7 +143,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: success() && startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |

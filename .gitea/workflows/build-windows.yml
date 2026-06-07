@@ -1,4 +1,4 @@
-name: Build CursorQ Windows
+name: Build CursorQ
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
-    # 使用 Docker 容器运行（oc-docker-runner 支持）
+  build-linux:
+    # Docker runner 构建 Linux 版本
     runs-on: docker
 
     steps:
@@ -21,19 +21,48 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Build core
+        run: npm run build:core
+
+      - name: Build frontend
+        run: cd apps/tauri && npm run vite:build
+
+      - name: Show build outputs
+        run: |
+          echo "=== dist directory ==="
+          ls -la apps/tauri/dist/ 2>/dev/null || echo "dist not found"
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            apps/tauri/src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          name: cursorq-frontend
+          path: apps/tauri/dist/**
+
+  build-windows:
+    # 使用 Docker 中的 Wine 或交叉编译工具构建 Windows 版本
+    runs-on: docker
+    needs: build-linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust and Wine
+        run: |
+          apt-get update
+          apt-get install -y wine64 mingw-w64
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup target add x86_64-pc-windows-gnu
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -41,129 +70,71 @@ jobs:
       - name: Build core
         run: npm run build:core
 
-      - name: Show environment info
-        run: |
-          node --version
-          npm --version
-          rustc --version
-          cargo --version
+      - name: Build Windows frontend
+        run: cd apps/tauri && npm run vite:build
 
-      - name: Build Tauri app
-        run: cd apps/tauri && npx tauri build
+      - name: Build Windows app (cross-compile)
+        run: |
+          source $HOME/.cargo/env
+          cd apps/tauri/src-tauri
+          cargo build --release --target x86_64-pc-windows-gnu
         env:
           RUST_BACKTRACE: full
-          CARGO_TERM_COLOR: never
 
       - name: List build outputs
         if: always()
         run: |
-          echo "=== Bundle directory ==="
-          ls -la apps/tauri/src-tauri/target/release/bundle/ 2>/dev/null || echo "Bundle directory not found"
-          echo "=== Release exe ==="
-          ls -la apps/tauri/src-tauri/target/release/*.exe 2>/dev/null || echo "No exe found"
-          echo "=== dist directory ==="
-          ls -la apps/tauri/dist 2>/dev/null || echo "dist directory not found"
-
-      - name: Get version
-        id: get_version
-        run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
-          else
-            VERSION="0.1.1"
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          echo "=== Windows build ==="
+          ls -la apps/tauri/src-tauri/target/x86_64-pc-windows-gnu/release/*.exe 2>/dev/null || echo "No exe found"
 
       - name: Prepare release package
         if: success()
         run: |
-          version="${{ steps.get_version.outputs.VERSION }}"
+          version="0.1.1"
           releaseDir="release"
           packageName="cursorq-${version}-win64"
 
-          mkdir -p "$releaseDir"
+          mkdir -p "$releaseDir/$packageName"
+          
+          # Copy exe
+          cp apps/tauri/src-tauri/target/x86_64-pc-windows-gnu/release/*.exe "$releaseDir/$packageName/" 2>/dev/null || true
+          
+          # Copy frontend
+          cp -r apps/tauri/dist "$releaseDir/$packageName/"
+          cp -r content "$releaseDir/$packageName/" 2>/dev/null || true
+          cp -r data "$releaseDir/$packageName/" 2>/dev/null || true
+          cp -r config "$releaseDir/$packageName/" 2>/dev/null || true
+          
+          # Create zip
+          cd "$releaseDir"
+          zip -r "${packageName}.zip" "$packageName"
+          cd ..
+          
+          echo "Created: ${releaseDir}/${packageName}.zip"
+          ls -la "$releaseDir/"
 
-          # Copy Tauri build output
-          bundlePath="apps/tauri/src-tauri/target/release/bundle"
-          if [ -d "$bundlePath/msi" ]; then
-            cp "$bundlePath/msi/"* "$releaseDir/"
-          fi
-          if [ -d "$bundlePath/nsis" ]; then
-            cp "$bundlePath/nsis/"* "$releaseDir/"
-          fi
-
-          # Find exe
-          exePath="apps/tauri/src-tauri/target/release/CursorQ.exe"
-          if [ ! -f "$exePath" ]; then
-            exePath=$(ls apps/tauri/src-tauri/target/release/*.exe 2>/dev/null | head -1)
-          fi
-
-          if [ -f "$exePath" ]; then
-            # Create package directory
-            packageDir="${releaseDir}/${packageName}"
-            mkdir -p "$packageDir"
-            cp "$exePath" "$packageDir/"
-            cp -r apps/tauri/dist "$packageDir/"
-            cp -r content "$packageDir/" 2>/dev/null || true
-            cp -r data "$packageDir/" 2>/dev/null || true
-            cp -r config "$packageDir/" 2>/dev/null || true
-            cp release/README.md "$packageDir/" 2>/dev/null || true
-            cp LICENSE "$packageDir/" 2>/dev/null || true
-
-            # Create zip
-            cd "$releaseDir"
-            zip -r "${packageName}.zip" "$packageName"
-            cd ..
-            echo "Created: ${releaseDir}/${packageName}.zip"
-            ls -la "$releaseDir/"
-          else
-            echo "Executable not found"
-            exit 1
-          fi
-
-      - name: Upload build artifacts
+      - name: Upload Windows artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: cursorq-windows-${{ steps.get_version.outputs.VERSION }}
+          name: cursorq-windows
           path: release/*.zip
-          if-no-files-found: error
 
       - name: Create Release
         if: success() && startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/*.zip
-            release/*.msi
-            release/*.exe
+          files: release/*.zip
           body: |
-            # CursorQ ${{ steps.get_version.outputs.VERSION }}
+            # CursorQ v0.1.1
 
             ## 下载
 
-            - **cursorq-${{ steps.get_version.outputs.VERSION }}-win64.zip** - 便携版（推荐）
-            - **CursorQ_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi** - MSI 安装包
+            - **cursorq-0.1.1-win64.zip** - Windows 便携版
 
-            ## 使用说明
+            ## 说明
 
-            1. 下载并解压 zip 文件到任意目录
-            2. 双击 `CursorQ.exe` 启动
-            3. 首次启动会自动读取 Cursor 用量信息
-
-            ## 系统要求
-
-            - Windows 10/11 (64-bit)
-            - Node.js 20+
-            - 已安装并登录 Cursor 桌面版
-
-            ## 更新日志
-
-            - 新增大型数据库支持
-            - 新增卡片式 UI 布局
-            - 修复安全漏洞
-            - 优化构建流程
+            此版本使用交叉编译构建，可能在某些 Windows 系统上需要额外运行时库。
+            建议本地构建以获得最佳兼容性。
           draft: false
           prerelease: false
-          generate_release_notes: true

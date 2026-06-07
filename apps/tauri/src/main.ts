@@ -216,10 +216,10 @@ function renderMetrics(m: NonNullable<Payload["detail"]>["metrics"]) {
       ? formatTotalMetricValue(locale, tier, cyclePct, cycleStart, cycleEnd)
       : `${tier} · ${cyclePct}%`;
 
-  // 计算日均应为百分比
+  // 计算日均应为百分比（已过时间占比）
   const expectedPct = cycleStart > 0 && cycleEnd > cycleStart
-    ? Math.round(((cycleEnd - Date.now()) / (cycleEnd - cycleStart)) * 100)
-    : Math.round((m.daysLeft / Math.max(1, m.cycleTotalDays ?? 30)) * 100);
+    ? Math.round(((Date.now() - cycleStart) / (cycleEnd - cycleStart)) * 100)
+    : Math.round((1 - m.daysLeft / Math.max(1, m.cycleTotalDays ?? 30)) * 100);
 
   const daysUrgencyClass = daysUrgencyTone(urgency).replace("days-", "");
 

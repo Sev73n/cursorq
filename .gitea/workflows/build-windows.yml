@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    # Docker runner 构建 Linux 版本
-    runs-on: docker
+  build:
+    # 使用 Gitea 默认的 docker runner 标签
+    # 如果 runner 没有 docker 标签，尝试以下选项：
+    # - ubuntu-latest
+    # - self-hosted
+    # - 或者查看 runner 实际配置的标签
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -35,106 +39,10 @@ jobs:
           echo "=== dist directory ==="
           ls -la apps/tauri/dist/ 2>/dev/null || echo "dist not found"
 
-      - name: Upload frontend artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cursorq-frontend
-          path: apps/tauri/dist/**
-
-  build-windows:
-    # 使用 Docker 中的 Wine 或交叉编译工具构建 Windows 版本
-    runs-on: docker
-    needs: build-linux
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust and Wine
-        run: |
-          apt-get update
-          apt-get install -y wine64 mingw-w64
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source $HOME/.cargo/env
-          rustup target add x86_64-pc-windows-gnu
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build core
-        run: npm run build:core
-
-      - name: Build Windows frontend
-        run: cd apps/tauri && npm run vite:build
-
-      - name: Build Windows app (cross-compile)
-        run: |
-          source $HOME/.cargo/env
-          cd apps/tauri/src-tauri
-          cargo build --release --target x86_64-pc-windows-gnu
-        env:
-          RUST_BACKTRACE: full
-
-      - name: List build outputs
-        if: always()
-        run: |
-          echo "=== Windows build ==="
-          ls -la apps/tauri/src-tauri/target/x86_64-pc-windows-gnu/release/*.exe 2>/dev/null || echo "No exe found"
-
-      - name: Prepare release package
-        if: success()
-        run: |
-          version="0.1.1"
-          releaseDir="release"
-          packageName="cursorq-${version}-win64"
-
-          mkdir -p "$releaseDir/$packageName"
-          
-          # Copy exe
-          cp apps/tauri/src-tauri/target/x86_64-pc-windows-gnu/release/*.exe "$releaseDir/$packageName/" 2>/dev/null || true
-          
-          # Copy frontend
-          cp -r apps/tauri/dist "$releaseDir/$packageName/"
-          cp -r content "$releaseDir/$packageName/" 2>/dev/null || true
-          cp -r data "$releaseDir/$packageName/" 2>/dev/null || true
-          cp -r config "$releaseDir/$packageName/" 2>/dev/null || true
-          
-          # Create zip
-          cd "$releaseDir"
-          zip -r "${packageName}.zip" "$packageName"
-          cd ..
-          
-          echo "Created: ${releaseDir}/${packageName}.zip"
-          ls -la "$releaseDir/"
-
-      - name: Upload Windows artifacts
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cursorq-windows
-          path: release/*.zip
-
-      - name: Create Release
-        if: success() && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.zip
-          body: |
-            # CursorQ v0.1.1
-
-            ## 下载
-
-            - **cursorq-0.1.1-win64.zip** - Windows 便携版
-
-            ## 说明
-
-            此版本使用交叉编译构建，可能在某些 Windows 系统上需要额外运行时库。
-            建议本地构建以获得最佳兼容性。
-          draft: false
-          prerelease: false
+          name: cursorq-build
+          path: |
+            apps/tauri/dist/**
+            packages/core/dist/**

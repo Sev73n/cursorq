@@ -93,9 +93,18 @@ try {
 }
 
 if (autoPush) {
-  run("git push origin main --tags");
-  console.log("\n✓ 已推送到远程，可以去 GitHub 创建 Release 了！");
+  for (const remote of ["origin", "gitea"]) {
+    try {
+      run(`git push ${remote} main --tags`);
+      console.log(`  ✓ 已推送到 ${remote}`);
+    } catch {
+      console.warn(`  ⚠ 推送 ${remote} 失败，请手动执行 git push ${remote} main --tags`);
+    }
+  }
+  console.log("\n✓ 推送完成，GitHub tag 将触发 CI 创建 Release");
 } else {
-  console.log(`\n下一步: git push origin main --tags`);
+  console.log(`\n下一步:`);
+  console.log(`  git push origin main --tags`);
+  console.log(`  git push gitea main --tags`);
   console.log(`或加 --push 参数自动推送`);
 }

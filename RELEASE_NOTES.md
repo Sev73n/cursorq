@@ -1,46 +1,30 @@
-# CursorQ v0.2.0 Release Notes
+# CursorQ v0.2.1 Release Notes
 
-## 核心变更：进度颜色策略重构
+## 文案与内容
 
-### 问题
+- **states.json**：新增 2 条橙色温和提醒文案（`done_today_ok` 状态）
+  - 「今天用得多 / 大盘还稳」
+  - 「冲太猛了 / 好在余粮足」
+- **states.json**：微调周期超前文案（「后面扣咋整」→「后面扣哋整」）
+- **content/manifest.json**：版本号 1 → 2，便于已开启远程同步的用户自动合并新文案
 
-此前胶囊颜色仅由「今日用量 vs 日预算」决定：今日用量 ≥ 2× 日预算即变红。  
-但实际场景中，如果总量远低于日均进度（一直在省着用），某天集中使用并不应该触发红色警告。
+## 发布流程
 
-### 解决方案
-
-引入**总量节奏门控**：胶囊颜色以「总量是否超前日均」为主判断依据。
-
-| 条件 | 胶囊颜色 | 文案状态 |
-|------|----------|----------|
-| 总量落后日均 | 蓝/绿（不变） | 正常笑话轮播 |
-| 总量超前 + 今日 < 2×日预算 | 蓝/绿 | 正常笑话轮播 |
-| 总量超前 + 今日 ≥ 2×日预算 + 余量充足 | **橙色** | 温和提醒（"今天猛了点 余粮还够"） |
-| 总量超前 + 今日 ≥ 2×日预算 + 余量紧张 | **红色** | 紧急警告（"今日够了 溜了溜了"） |
-
-### 具体改动
-
-- **pill-visual.ts**: `buildProgressPaint` 新增 `cycleOverPace` 门控，仅当总量超前日均时才触发橙/红色
-- **budget.ts**: `computeProgress` 自动计算 `cycleOverPace`（基于 `isCycleOverPace`）
-- **pill-bar.ts**: 渐变支持橙色阶段（琥珀色 `#d97706 → #f59e0b → #fbbf24`）
-- **format.ts**: 「超额」标签仅在总量超前且今日超日预算时显示
-- **copy.ts**: `pickWidgetState` 简化，phase 已包含完整信息
-- **types.ts**: `ProgressPaint.phase` 新增 `"orange"`，`UsageMetrics` 新增 `cycleOverPace`
-- **states.json**: 新增 2 条 `done_today_ok` 橙色文案
-
-### 测试
-
-- 新增 4 个测试用例覆盖 orange/red/门控逻辑
-- 全部 14 个测试通过
+- 修正 `npm run release` 脚本顺序（先 bump 版本再打包）
+- GitHub Actions Release 正文改为读取本文件
+- 同步更新 `release/README.md`（便携包内 README.txt）
 
 ---
 
 ## 升级指南
 
-**从 v0.1.x 升级**：
-1. 下载 `cursorq-0.2.0-win64.zip`
-2. 解压覆盖原目录即可
+**从 v0.2.0 升级**：
+
+1. 下载 `cursorq-0.2.1-win64.zip`
+2. 解压覆盖原目录即可（保留 `data/` 下的用量与语言设置）
 3. 无需额外配置
+
+**从 v0.1.x 升级**：请先升级到 v0.2.0 或直接安装 v0.2.1，进度条颜色逻辑以 v0.2.0 起以「总量节奏」为主判断。
 
 ## 注意事项
 

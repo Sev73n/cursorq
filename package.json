@@ -18,7 +18,7 @@
     "validate:copy": "node scripts/validate-copy.mjs",
     "package:win": "node scripts/package-release.mjs",
     "release:bump": "node scripts/release-bump.mjs",
-    "release": "npm run package:win && node scripts/release-bump.mjs"
+    "release": "node scripts/release-bump.mjs patch && npm run package:win"
   },
   "engines": {
     "node": ">=20"

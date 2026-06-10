@@ -156,32 +156,7 @@ jobs:
             release/*.zip
             release/*.msi
             release/*.exe
-          body: |
-            # CursorQ ${{ steps.get_version.outputs.VERSION }}
-
-            ## 下载
-
-            - **cursorq-${{ steps.get_version.outputs.VERSION }}-win64.zip** - 便携版（推荐）
-            - **CursorQ_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi** - MSI 安装包
-
-            ## 使用说明
-
-            1. 下载并解压 zip 文件到任意目录
-            2. 双击 `CursorQ.exe` 启动
-            3. 首次启动会自动读取 Cursor 用量信息
-
-            ## 系统要求
-
-            - Windows 10/11 (64-bit)
-            - Node.js 20+
-            - 已安装并登录 Cursor 桌面版
-
-            ## 更新日志
-
-            - 新增大型数据库支持
-            - 新增卡片式 UI 布局
-            - 修复安全漏洞
-            - 优化构建流程
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false

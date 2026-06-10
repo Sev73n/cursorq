@@ -52,6 +52,7 @@ interface Payload {
     redPct: number;
     warnYellowPct: number;
     paceStressPct?: number;
+    phase?: string;
   };
   detail?: {
     cycleStartMs: number;
@@ -156,16 +157,22 @@ function jokeOneLine(copy: { line1: string; line2?: string }): string {
 function paintBar(p: Payload["progress"] | ProgressPaint | null | undefined) {
   const bar = el("bar");
   if (!bar || !p) return;
+  const phase = (p as ProgressPaint).phase ?? "blue";
   const gradient = buildPillBarGradient({
     bluePct: p.bluePct ?? 0,
     redPct: p.redPct ?? 0,
     warnYellowPct: p.warnYellowPct ?? 0,
+    phase,
   });
-  const red = p.redPct ?? 0;
-  bar.style.backgroundColor = red > 0.02 ? "#9a3412" : "#16a34a";
+  const intensity = p.redPct ?? 0;
+  if (intensity > 0.02) {
+    bar.style.backgroundColor = phase === "orange" ? "#d97706" : "#9a3412";
+  } else {
+    bar.style.backgroundColor = "#16a34a";
+  }
   bar.style.background = gradient;
   bar.dataset.blue = String(Math.round((p.bluePct ?? 0) * 100));
-  bar.dataset.red = String(Math.round(red * 100));
+  bar.dataset.red = String(Math.round(intensity * 100));
   queueStabilizeWindowChrome();
 }
 

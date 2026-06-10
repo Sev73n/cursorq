@@ -115,7 +115,7 @@ export interface ProgressPaint {
   warnYellowPct: number;
   /** 0–1：周期节奏偏紧（仅面板参考，不影响胶囊颜色） */
   paceStressPct: number;
-  phase: "blue" | "green" | "red";
+  phase: "blue" | "green" | "orange" | "red";
   todayUsedCents: number;
   dailyBudgetCents: number;
   cycleRemainingCents: number;
@@ -134,7 +134,7 @@ export type WidgetState =
   | "surplus_vibe"
   | "warn80"
   | "done_today"
-  | "done_today_ok"   // 今日超额但周期余量充足（胶囊红，但不必恐慌）
+  | "done_today_ok"   // 今日超额但周期余量充足（胶囊橙，不必恐慌）
   | "over_cycle";
 
 export type Locale = "zh" | "en";

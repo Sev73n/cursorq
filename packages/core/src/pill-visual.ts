@@ -1,16 +1,24 @@
 /**
  * 胶囊光带配色（唯一真相源）
  *
+ * 胶囊颜色策略：
+ * - 蓝色/绿色：正常状态，由 (剩余+节余)/额度 决定
+ * - 橙色：今日 ≥ 2×日预算，但周期余量充足（bluePct > 0.5）→ 温和提醒
+ * - 红色：今日 ≥ 2×日预算，且周期余量也紧张（bluePct ≤ 0.5）→ 紧急警告
+ *
  * 面板三条进度条：
- * - 总量：周期已用 %（Cursor 订阅页）→ 仅面板展示；胶囊「蓝」由 (剩余+节余)/额度 决定
- * - 今日已用：今日 $ / 日预算 → 胶囊仅在 今日 ≥ 2×日预算 时出现红
- * - 剩余天数：周期剩余天数紧迫度 → 仅面板条（短=宽松，长=紧迫），不影响胶囊
+ * - 总量：周期已用 %（Cursor 订阅页）→ 仅面板展示
+ * - 今日已用：今日 $ / 日预算 → 胶囊颜色参考
+ * - 剩余天数：周期剩余天数紧迫度 → 仅面板条，不影响胶囊
  */
 
 import type { ProgressPaint } from "./types.js";
 
-/** 胶囊变红：今日用量 ≥ 此倍数 × 日预算 */
+/** 胶囊变橙/红：今日用量 ≥ 此倍数 × 日预算 */
 export const PILL_RED_RATIO = 2;
+
+/** 周期余量充足阈值：bluePct > 此值时，今日超额降级为橙色而非红色 */
+export const CYCLE_COMFORT_THRESHOLD = 0.5;
 
 export interface PillPaintInput {
   cycleLimitCents: number;
@@ -44,8 +52,15 @@ export function buildProgressPaint(
   let phase: ProgressPaint["phase"] = bluePct > 0.02 ? "blue" : "green";
 
   if (ratio >= PILL_RED_RATIO) {
-    phase = "red";
-    redPct = Math.min(1, 0.22 + (ratio - PILL_RED_RATIO) / 2);
+    if (bluePct > CYCLE_COMFORT_THRESHOLD) {
+      // 周期余量充足 → 橙色温和提醒，不必恐慌
+      phase = "orange";
+      redPct = Math.min(0.45, 0.22 + (ratio - PILL_RED_RATIO) / 3);
+    } else {
+      // 周期也紧张 → 红色紧急警告
+      phase = "red";
+      redPct = Math.min(1, 0.22 + (ratio - PILL_RED_RATIO) / 2);
+    }
   }
 
   return {

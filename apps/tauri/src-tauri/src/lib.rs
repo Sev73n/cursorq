@@ -501,6 +501,13 @@ fn refresh_usage_sync(joke_index: Option<u32>) -> Result<String, String> {
 
     let root = paths::app_root();
     let mut cmd = Command::new(find_node_executable());
+    // Windows: 隐藏 node.exe 的控制台窗口
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
     cmd.arg(&script)
         .env("CURSORQ_ROOT", root.display().to_string())
         .env("CURSORQ_DATA", paths::data_dir().display().to_string())

@@ -1,5 +1,0 @@
-{
-  "enabled": true,
-  "contentBaseUrl": "https://raw.githubusercontent.com/YOUR_GITHUB_USER/cursorq/main/content",
-  "syncDelayMs": 30000
-}

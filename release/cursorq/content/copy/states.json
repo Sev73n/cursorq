@@ -11,8 +11,6 @@
   { "line1": "今日超额", "line2": "明天继续", "state": "done_today_ok" },
   { "line1": "今天猛了点", "line2": "余粮还够", "state": "done_today_ok" },
   { "line1": "日额超了", "line2": "周期还宽", "state": "done_today_ok" },
-  { "line1": "今天用得多", "line2": "大盘还稳", "state": "done_today_ok" },
-  { "line1": "冲太猛了", "line2": "好在余粮足", "state": "done_today_ok" },
-  { "line1": "本月已超车", "line2": "后面扣哋整", "state": "over_cycle" },
+  { "line1": "本月已超车", "line2": "后面扣咋整", "state": "over_cycle" },
   { "line1": "周期偏紧", "line2": "省着点用", "state": "over_cycle" }
 ]

@@ -32,9 +32,12 @@ export interface StateEntry {
 export function pickWidgetState(p: ProgressPaint): WidgetState {
   // 今日超额时，颜色（phase）优先于余量判断
   if (p.phase === "red") {
-    // 周期余量充足 → done_today_ok（红但不用恐慌）
-    if (p.bluePct > 0.5) return "done_today_ok";
+    // 周期也紧张 → 红色紧急状态
     return "done_today";
+  }
+  if (p.phase === "orange") {
+    // 今日猛但周期余粮充足 → 橙色温和状态
+    return "done_today_ok";
   }
   if (p.warnYellowPct > 0.05) return "warn80";
   if (p.cycleRemainingCents < p.cycleLimitCents * 0.15) return "over_cycle";

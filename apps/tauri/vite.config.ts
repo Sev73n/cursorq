@@ -6,6 +6,7 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   clearScreen: false,
+  base: "./",
   resolve: {
     alias: {
       "@cursorq/core": path.resolve(dir, "../../packages/core/src/browser.ts"),

@@ -57,8 +57,8 @@ step("npm run build:core");
 console.log("=== build tauri frontend ===");
 step("npm run vite:build", path.join(ROOT, "apps/tauri"));
 
-console.log("=== cargo release ===");
-step("cargo build --release", path.join(ROOT, "apps/tauri/src-tauri"));
+console.log("=== tauri release ===");
+step("cargo build --release --features tauri/custom-protocol", path.join(ROOT, "apps/tauri/src-tauri"));
 
 if (!fs.existsSync(EXE_SRC)) {
   console.error("missing exe:", EXE_SRC);
@@ -70,7 +70,19 @@ rmrf(OUT_DIR);
 mkdirp(path.join(OUT_DIR, "data"));
 mkdirp(path.join(OUT_DIR, "logs"));
 mkdirp(path.join(OUT_DIR, "tools"));
+mkdirp(path.join(OUT_DIR, "dist"));
+mkdirp(path.join(OUT_DIR, "dist/assets"));
 copyFile(EXE_SRC, path.join(OUT_DIR, "CursorQ.exe"));
+
+// 复制前端资源
+const frontendDist = path.join(ROOT, "apps/tauri/dist");
+if (fs.existsSync(frontendDist)) {
+  copyDir(frontendDist, path.join(OUT_DIR, "dist"));
+  console.log("  -> copied frontend dist");
+} else {
+  console.error("missing frontend dist:", frontendDist);
+  process.exit(1);
+}
 
 // 打包 sqlite3.exe（用于读取大体积 Cursor 数据库）
 const sqlite3Src = "C:\\platform-tools\\sqlite3.exe";
@@ -81,6 +93,16 @@ if (fs.existsSync(sqlite3Src)) {
   console.log("  -> WARNING: sqlite3.exe not found, large DB may fail");
 }
 
+// 打包 Node.js runtime（用于执行 refresh-usage.mjs 脚本）
+const nodeExe = process.env.CURSORQ_NODE_EXE || "C:\\Program Files\\nodejs\\node.exe";
+if (fs.existsSync(nodeExe)) {
+  copyFile(nodeExe, path.join(OUT_DIR, "runtime/node.exe"));
+  console.log("  -> bundled Node.js runtime");
+} else {
+  console.log("  -> WARNING: node.exe not found at expected path");
+  console.log("     Set CURSORQ_NODE_EXE environment variable to point to your node.exe");
+}
+
 const contentSrc = path.join(ROOT, "content");
 if (!fs.existsSync(path.join(contentSrc, "copy"))) {
   console.error("missing bundled content:", contentSrc);
@@ -88,7 +110,7 @@ if (!fs.existsSync(path.join(contentSrc, "copy"))) {
 }
 copyDir(contentSrc, path.join(OUT_DIR, "content"), (n) => n !== "README.md");
 
-const remoteTpl = path.join(ROOT, "release/cursorq/config/remote.json.example");
+const remoteTpl = path.join(ROOT, "config/remote.json.example");
 const remoteDest = path.join(OUT_DIR, "config/remote.json");
 copyFile(remoteTpl, remoteDest);
 console.log("  -> offline: uses bundled content/; optional: enable config/remote.json");

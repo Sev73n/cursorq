@@ -63,7 +63,7 @@ export const DEBUG_SCENARIOS: Record<
   },
   /** 下班：周期节奏正常，今日用量 = 周期公平日预算（追平均值，非超支） */
   doneToday: DONE_TODAY,
-  /** 超支：周期偏紧 + 今日超过 2 倍日预算 → 胶囊才红 */
+  /** 超支：周期偏紧 + 今日超过 2 倍日预算 → 胶囊红（周期也紧张才红） */
   overPace: (() => {
     const daily = computeDailyBudgetCents(4_000, CYCLE_END);
     return {

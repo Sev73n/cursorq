@@ -35,8 +35,10 @@ if (!fs.existsSync(zipPath)) {
   process.exit(1);
 }
 
-function getGiteaToken() {
-  if (process.env.GITEA_TOKEN) return process.env.GITEA_TOKEN;
+function getGiteaAuth() {
+  if (process.env.GITEA_TOKEN) {
+    return { user: process.env.GITEA_USER || "73", pass: process.env.GITEA_TOKEN };
+  }
   try {
     const host = new URL(GITEA_URL).host;
     const input = `protocol=http\nhost=${host}\n\n`;
@@ -45,21 +47,22 @@ function getGiteaToken() {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const m = out.match(/^password=(.+)$/m);
-    if (m) return m[1].trim();
+    const user = out.match(/^username=(.+)$/m)?.[1]?.trim();
+    const pass = out.match(/^password=(.+)$/m)?.[1]?.trim();
+    if (user && pass) return { user, pass };
   } catch {
     /* ignore */
   }
   return null;
 }
 
-const token = getGiteaToken();
-if (!token) {
+const authInfo = getGiteaAuth();
+if (!authInfo) {
   console.error("未找到 Gitea 凭据。请设置 GITEA_TOKEN 或配置 git credential。");
   process.exit(1);
 }
 
-const auth = Buffer.from(`${token}:x-oauth-basic`).toString("base64");
+const auth = Buffer.from(`${authInfo.user}:${authInfo.pass}`).toString("base64");
 const apiBase = `${GITEA_URL}/api/v1/repos/${GITEA_OWNER}/${GITEA_REPO}`;
 
 async function api(method, urlPath, body, headers = {}) {

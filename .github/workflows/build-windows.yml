@@ -43,44 +43,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build core
-        run: npm run build:core
-
-      - name: Show environment info
+      - name: Install sqlite3
         shell: pwsh
         run: |
-          node --version
-          npm --version
-          rustc --version
-          cargo --version
-          echo "---"
-          where link.exe
-          where cl.exe
-
-      - name: Build Tauri app
-        run: cd apps/tauri && npx tauri build
-        env:
-          RUST_BACKTRACE: full
-          CARGO_TERM_COLOR: never
-
-      - name: List build outputs
-        if: always()
-        shell: pwsh
-        run: |
-          Write-Host "=== Bundle directory ==="
-          if (Test-Path "apps\tauri\src-tauri\target\release\bundle") {
-            Get-ChildItem "apps\tauri\src-tauri\target\release\bundle" -Recurse | Select-Object FullName, Length
-          } else {
-            Write-Host "Bundle directory not found"
-          }
-          Write-Host "=== Release exe ==="
-          Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object FullName, Length
-          Write-Host "=== dist directory ==="
-          if (Test-Path "apps\tauri\dist") {
-            Get-ChildItem "apps\tauri\dist" | Select-Object FullName, Length
-          } else {
-            Write-Host "dist directory not found"
-          }
+          New-Item -ItemType Directory -Force -Path C:\platform-tools | Out-Null
+          $zip = "$env:RUNNER_TEMP\sqlite-tools.zip"
+          Invoke-WebRequest -Uri "https://www.sqlite.org/2024/sqlite-tools-win-x64-3460100.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\sqlite" -Force
+          $exe = Get-ChildItem "$env:RUNNER_TEMP\sqlite" -Recurse -Filter sqlite3.exe | Select-Object -First 1
+          if (-not $exe) { throw "sqlite3.exe not found in downloaded archive" }
+          Copy-Item $exe.FullName C:\platform-tools\sqlite3.exe -Force
+          Write-Host "Installed sqlite3 at C:\platform-tools\sqlite3.exe"
 
       - name: Get version
         id: get_version
@@ -89,74 +62,38 @@ jobs:
           if [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION=${GITHUB_REF#refs/tags/v}
           else
-            VERSION="0.1.1"
+            VERSION=$(node -p "require('./package.json').version")
           fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
-      - name: Prepare release package
-        if: success()
+      - name: Package portable zip
+        shell: pwsh
+        run: npm run package:win
+        env:
+          CURSORQ_SQLITE3: C:\platform-tools\sqlite3.exe
+
+      - name: Show package output
         shell: pwsh
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
-          $releaseDir = "release"
-          $packageName = "cursorq-$version-win64"
-
-          New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-
-          # Copy Tauri build output
-          $bundlePath = "apps\tauri\src-tauri\target\release\bundle"
-          if (Test-Path "$bundlePath\msi") {
-            Copy-Item "$bundlePath\msi\*" $releaseDir -Force
-          }
-          if (Test-Path "$bundlePath\nsis") {
-            Copy-Item "$bundlePath\nsis\*" $releaseDir -Force
-          }
-
-          # Find exe
-          $exePath = "apps\tauri\src-tauri\target\release\CursorQ.exe"
-          if (-not (Test-Path $exePath)) {
-            $exePath = Get-ChildItem "apps\tauri\src-tauri\target\release\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          }
-
-          if (Test-Path $exePath) {
-            # Create package directory
-            $packageDir = Join-Path $releaseDir $packageName
-            New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
-            Copy-Item $exePath $packageDir -Force
-            Copy-Item "apps\tauri\dist" $packageDir -Recurse -Force
-            Copy-Item "content" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item "data" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item "config" $packageDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item "release\README.md" $packageDir -Force -ErrorAction SilentlyContinue
-            Copy-Item "LICENSE" $packageDir -Force -ErrorAction SilentlyContinue
-
-            # Create zip
-            $zipPath = Join-Path $releaseDir "$packageName.zip"
-            Compress-Archive -Path $packageDir -DestinationPath $zipPath -Force
-            Write-Host "Created: $zipPath"
-            Get-ChildItem $releaseDir | Select-Object Name, Length
-          } else {
-            Write-Error "Executable not found"
-            exit 1
+          Get-ChildItem release\cursorq-*.zip | Format-Table Name, Length -AutoSize
+          $zip = Get-ChildItem release\cursorq-*.zip | Select-Object -First 1
+          if ($zip.Length -lt 20000000) {
+            Write-Warning "Package seems too small ($($zip.Length) bytes); expected full portable bundle"
           }
 
       - name: Upload build artifacts
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: cursorq-windows-${{ steps.get_version.outputs.VERSION }}
-          path: release/*.zip
+          path: release/cursorq-*.zip
           if-no-files-found: error
 
       - name: Create Release
-        if: success() && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/*.zip
-            release/*.msi
-            release/*.exe
+          files: release/cursorq-*.zip
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false

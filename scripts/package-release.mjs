@@ -85,7 +85,8 @@ if (fs.existsSync(frontendDist)) {
 }
 
 // 打包 sqlite3.exe（用于读取大体积 Cursor 数据库）
-const sqlite3Src = "C:\\platform-tools\\sqlite3.exe";
+const sqlite3Src =
+  process.env.CURSORQ_SQLITE3 || "C:\\platform-tools\\sqlite3.exe";
 if (fs.existsSync(sqlite3Src)) {
   copyFile(sqlite3Src, path.join(OUT_DIR, "tools/sqlite3.exe"));
   console.log("  -> bundled sqlite3.exe for large DB support");
@@ -94,12 +95,12 @@ if (fs.existsSync(sqlite3Src)) {
 }
 
 // 打包 Node.js runtime（用于执行 refresh-usage.mjs 脚本）
-const nodeExe = process.env.CURSORQ_NODE_EXE || "C:\\Program Files\\nodejs\\node.exe";
+const nodeExe = process.env.CURSORQ_NODE_EXE || process.execPath;
 if (fs.existsSync(nodeExe)) {
   copyFile(nodeExe, path.join(OUT_DIR, "runtime/node.exe"));
   console.log("  -> bundled Node.js runtime");
 } else {
-  console.log("  -> WARNING: node.exe not found at expected path");
+  console.log("  -> WARNING: node.exe not found");
   console.log("     Set CURSORQ_NODE_EXE environment variable to point to your node.exe");
 }
 

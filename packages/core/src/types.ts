@@ -72,6 +72,8 @@ export interface UsageMetrics {
   displayMessage?: string;
   /** 展示档位：Ultra / Pro+ / Pro / Teams … */
   tierLabel: string;
+  /** 总量是否超前于日均节奏 */
+  cycleOverPace?: boolean;
 }
 
 export interface UsageDetail {

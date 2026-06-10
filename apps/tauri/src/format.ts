@@ -5,15 +5,17 @@ function formatUsd(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-/** 今日：当日 $ / 日预算；超过日预算标「超额」 */
+/** 今日：当日 $ / 日预算；仅当总量超前日均且今日超日预算时标「超额」 */
 export function formatTodayMetricValue(
   locale: Locale,
   todayUsedCents: number,
-  dailyBudgetCents: number
+  dailyBudgetCents: number,
+  cycleOverPace?: boolean
 ): string {
   const daily = Math.max(1, dailyBudgetCents);
   const pct = Math.round((todayUsedCents / daily) * 100);
-  const over = isTodayOverDaily(todayUsedCents, dailyBudgetCents);
+  const over =
+    cycleOverPace === true && isTodayOverDaily(todayUsedCents, dailyBudgetCents);
   const prefix = over ? t(locale, "todayOver") : "";
   // 用 en-dash 替代 / 减少字符宽度，保持单行
   return `${prefix}${pct}% · ${formatUsd(todayUsedCents)}–${formatUsd(dailyBudgetCents)}`;

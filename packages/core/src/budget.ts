@@ -258,6 +258,16 @@ export function computeProgress(
     period.billingCycleStart,
     period.billingCycleEnd
   );
+  const cycleUsedPct =
+    period.planUsage.totalPercentUsed > 0
+      ? period.planUsage.totalPercentUsed
+      : Math.round((period.planUsage.includedSpend / Math.max(1, limit)) * 1000) / 10;
+  const cycleOverPace = isCycleOverPace(
+    cycleUsedPct,
+    period.billingCycleStart,
+    period.billingCycleEnd,
+    now
+  );
 
   return buildProgressPaint(
     {
@@ -266,6 +276,7 @@ export function computeProgress(
       surplusBankCents: state.surplusBankCents,
       todayUsedCents,
       dailyBudgetCents,
+      cycleOverPace,
     },
     { daysLeft, paceStressPct: paceStress }
   );

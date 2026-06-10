@@ -11,7 +11,7 @@ import {
   fetchUsageEventsInCycle,
   type RawUsageEvent,
 } from "./usage-events.js";
-import { daysLeftInCycle } from "./budget.js";
+import { daysLeftInCycle, isCycleOverPace } from "./budget.js";
 import { resolvePlanTier } from "./plan-tier.js";
 
 function pct(n: number | undefined): number {
@@ -53,6 +53,12 @@ function buildMetrics(
   );
 
   const totalPct = pct(period.planUsage.totalPercentUsed);
+  const effectivePct = totalPct > 0 ? totalPct : cycleUsedPct;
+  const cycleOverPace = isCycleOverPace(
+    effectivePct,
+    period.billingCycleStart,
+    period.billingCycleEnd
+  );
   return {
     todayUsedCents,
     dailyBudgetCents,
@@ -60,13 +66,14 @@ function buildMetrics(
     cycleUsedCents: used,
     cycleRemainingCents: remaining,
     cycleLimitCents: limit,
-    cycleUsedPct: totalPct > 0 ? totalPct : cycleUsedPct,
+    cycleUsedPct: effectivePct,
     cycleRemainingPct,
     totalPercentUsed: totalPct,
     daysLeft,
     cycleTotalDays,
     daysLeftPct,
     tierLabel: resolvePlanTier(plan, period, period.membershipType),
+    cycleOverPace,
   };
 }
 

@@ -84,6 +84,7 @@ interface Payload {
       cycleTotalDays?: number;
       displayMessage?: string;
       tierLabel?: string;
+      cycleOverPace?: boolean;
     };
   };
   locale?: Locale;
@@ -237,7 +238,8 @@ function renderMetrics(m: NonNullable<Payload["detail"]>["metrics"]) {
       formatTodayMetricValue(
         locale,
         m.todayUsedCents,
-        m.dailyBudgetCents
+        m.dailyBudgetCents,
+        m.cycleOverPace
       ),
       m.todayUsedPct,
       "green"

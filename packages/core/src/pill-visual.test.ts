@@ -19,7 +19,7 @@ test("at 100% daily ratio: no red or orange", () => {
   assert.notEqual(p.phase, "orange");
 });
 
-test("at 200% daily ratio with high bluePct: orange (not red)", () => {
+test("at 200% daily ratio with high bluePct AND cycle over pace: orange", () => {
   const p = buildProgressPaint(
     {
       cycleLimitCents: 40_000,
@@ -27,6 +27,7 @@ test("at 200% daily ratio with high bluePct: orange (not red)", () => {
       surplusBankCents: 0,
       todayUsedCents: 200,
       dailyBudgetCents: 100,
+      cycleOverPace: true,
     },
     { daysLeft: 20 }
   );
@@ -34,7 +35,7 @@ test("at 200% daily ratio with high bluePct: orange (not red)", () => {
   assert.equal(p.phase, "orange");
 });
 
-test("at 200% daily ratio with low bluePct: red", () => {
+test("at 200% daily ratio with low bluePct AND cycle over pace: red", () => {
   const p = buildProgressPaint(
     {
       cycleLimitCents: 40_000,
@@ -42,12 +43,29 @@ test("at 200% daily ratio with low bluePct: red", () => {
       surplusBankCents: 0,
       todayUsedCents: 200,
       dailyBudgetCents: 100,
+      cycleOverPace: true,
     },
     { daysLeft: 20 }
   );
   assert.ok(p.redPct > 0, `redPct=${p.redPct}`);
   assert.equal(p.phase, "red");
   assert.ok(p.bluePct <= 0.5, `bluePct=${p.bluePct}`);
+});
+
+test("at 200% daily ratio but cycle NOT over pace: stays blue", () => {
+  const p = buildProgressPaint(
+    {
+      cycleLimitCents: 40_000,
+      cycleRemainingCents: 26_000,
+      surplusBankCents: 0,
+      todayUsedCents: 200,
+      dailyBudgetCents: 100,
+      cycleOverPace: false,
+    },
+    { daysLeft: 20 }
+  );
+  assert.equal(p.redPct, 0);
+  assert.equal(p.phase, "blue");
 });
 
 test("low remaining lowers blue", () => {
